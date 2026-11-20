@@ -177,6 +177,11 @@
   #card li.off:hover .t { color: inherit; }
   #card .hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
   #card .hint:empty { display: none; }
+  #card .hint div + div { margin-top: 4px; }
+  #card .exl { padding: 2px 0 4px; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
+  #card .exl div { padding: 3px 0; }
+  #card .exl b { color: var(--ink); font-weight: normal; }
+  #card .exl .sub { padding-left: 12px; }
   #card .lk { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
   #card .lk[hidden] { display: none; }
   #card .lk summary { cursor: pointer; list-style: none; color: var(--muted); font-size: 11px; padding: 4px 0; }
@@ -392,6 +397,10 @@
     </div>
     <ol id="ctracks" hidden></ol>
     <div class="hint" id="chint"></div>
+    <details id="cext" class="lk" hidden>
+      <summary id="cextsum"></summary>
+      <div id="cextl" class="exl"></div>
+    </details>
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
       <ol id="lklist"></ol>
@@ -981,7 +990,7 @@
   async function enrich(n) {
     if (!extOn) return;
     var g = gen;
-    n.ext = { txt: 'Sources étendues en cours : de nouveaux artistes vont apparaître tous ensemble.' };
+    n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.' };
     n.enriching = true; startAnim();
     var total = 3, done = 0;
     function progress(name) {
@@ -1004,28 +1013,32 @@
       if (gen === g) releaseHold(n.id);   /* meme si l'artiste a ete supprime entre-temps : rien ne doit rester masque */
     }
     if (!alive(n, g)) return;
-    var c = 0, l = 0, both = 0, eCount = 0;
+    var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0;
     links.forEach(function (lk) {
       if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
       if (!lk.k) return;
+      if (/[cle]/.test(lk.k)) anyExt++;
       if (lk.k.length > 1) both++;
       if (lk.k.indexOf('c') >= 0) c++;
       if (lk.k.indexOf('l') >= 0) l++;
       if (lk.k.indexOf('e') >= 0) eCount++;
     });
-    var parts = ['collaborations : ' + (collabFailed ? 'indisponibles' : c)];
-    parts.push('labels : ' + (labelFailed ? 'indisponibles'
-      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')
-        + (n.ext.rej ? ', ' + n.ext.rej + ' écartés (genre différent ou sans photo)' : '')
-        + (n.ext.res ? ', ' + n.ext.res + ' retrouvés par le style MusicBrainz' : '')
-        + (n.ext.mbfail ? ' (style MusicBrainz indisponible, réessaie plus tard)' : '')));
-    parts.push('ListenBrainz : ' + (lb === 'nomb' ? 'artiste absent de MusicBrainz'
-      : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : l));
-    if (both) parts.push('confirmés : ' + both);
-    n.ext.txt = 'Sources étendues, ' + parts.join(' · ') + '.';
+    /* Resume court (barre d'etat, titre du detail) et detail ligne par ligne, replie dans la fiche. */
+    var lines = [['Collaborations', collabFailed ? 'indisponibles' : String(c)]];
+    lines.push(['Labels', labelFailed ? 'indisponibles'
+      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')]);
+    if (!labelFailed && n.ext.rej) lines.push([null, n.ext.rej + ' écartés (genre différent ou sans photo)']);
+    if (!labelFailed && n.ext.res) lines.push([null, n.ext.res + ' retrouvés par le style MusicBrainz']);
+    if (!labelFailed && n.ext.mbfail) lines.push([null, 'style MusicBrainz indisponible, réessaie plus tard']);
+    lines.push(['ListenBrainz', lb === 'nomb' ? 'artiste absent de MusicBrainz'
+      : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : String(l)]);
+    if (both) lines.push(['Confirmés par plusieurs sources', String(both)]);
+    n.ext.lines = lines;
+    n.ext.sum = 'Sources étendues : ' + (anyExt ? anyExt + (anyExt > 1 ? ' liens ajoutés' : ' lien ajouté') : 'aucun lien ajouté');
+    n.ext.txt = '';
     refresh();
     sim.alpha(0.5).restart();
-    setStatus(n.ext.txt, null, null, 'msg');
+    setStatus(n.ext.sum, null, null, 'msg');
     if (selected === n) renderCard();
   }
 
@@ -1719,11 +1732,26 @@
     renderLinks(n);
     renderOut(n);
     var hints = [];
-    if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
+    if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié.');
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
-    if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits fournis par Apple : Deezer n’en propose pas pour cet artiste.');
-    if (n.tracks === null) hints.push('Aucun extrait disponible' + (n.appleNote ? ' (repli Apple : ' + n.appleNote + ')' : ''));
-    el('chint').textContent = hints.join(' ');
+    if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits : Apple (absents chez Deezer).');
+    if (n.tracks === null) hints.push('Aucun extrait disponible' + (n.appleNote ? ' (repli Apple : ' + n.appleNote + ')' : '') + '.');
+    var hb = el('chint');
+    hb.textContent = '';
+    hints.forEach(function (h) { var d = document.createElement('div'); d.textContent = h; hb.appendChild(d); });
+    var extLines = n.ext && n.ext.lines;
+    el('cext').hidden = !extLines;
+    if (extLines) {
+      el('cextsum').textContent = n.ext.sum;
+      var xl = el('cextl');
+      xl.textContent = '';
+      extLines.forEach(function (ln) {
+        var d = document.createElement('div');
+        if (ln[0] === null) { d.className = 'sub'; d.textContent = ln[1]; }
+        else { var b = document.createElement('b'); b.textContent = ln[0] + ' : '; d.append(b, ln[1]); }
+        xl.appendChild(d);
+      });
+    }
     updateNow();
     if (playing && !playing.paused) startAnim();
   }
