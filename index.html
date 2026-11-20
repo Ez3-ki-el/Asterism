@@ -129,6 +129,9 @@
   input[type=range]:hover::-moz-range-thumb { background: var(--accent); border-color: var(--accent); }
 
   #panel .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  #panel .tag { color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; }
+  #panel .legend { color: var(--muted); font-size: 11px; line-height: 1.4; margin-top: 8px; }
+  #panel .legend[hidden] { display: none; }
   input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 11px; height: 11px; margin: 0;
     border: 1px solid var(--ink); border-radius: 0; background: var(--bg); cursor: pointer; flex: none; }
   input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
@@ -285,6 +288,8 @@
         <input id="dist" type="range" min="30" max="200" step="5" value="70">
       </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
+      <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
+      <div class="legend" id="extlegend" hidden>Pointillé fin : collaboration. Tirets : ListenBrainz. Trait épais : confirmé par plusieurs sources.</div>
       <div class="row">
         <button id="undo" type="button" disabled>Annuler</button>
         <button id="redo" type="button" disabled>Rétablir</button>
@@ -362,7 +367,7 @@
 
   /* ---------- Etat du graphe ---------- */
   var nodes = [], links = [];
-  var byId = new Map(), adj = new Map(), linkKeys = new Set();
+  var byId = new Map(), adj = new Map(), linkKeys = new Map();
   var hovered = null, selected = null, dragging = false;
   var focusDepth = 0, visible = null;
 
@@ -423,14 +428,24 @@
     return n;
   }
 
-  function addLink(a, b) {
-    if (a === b) return;
+  /* kind : 'd' similaires Deezer, 'l' ListenBrainz, 'c' collaboration ; w : poids de 0 a 1.
+     Un lien confirme par plusieurs sources cumule les lettres (ex. 'dl'). */
+  function addLink(a, b, kind, w) {
+    if (a === b) return null;
+    kind = kind || 'd'; w = w || 0;
     var key = a.id < b.id ? a.id + '-' + b.id : b.id + '-' + a.id;
-    if (linkKeys.has(key)) return;
-    linkKeys.add(key);
-    links.push({ source: a.id, target: b.id });
+    var ex = linkKeys.get(key);
+    if (ex) {
+      if (ex.k.indexOf(kind) < 0) ex.k += kind;
+      if (w > ex.w) ex.w = w;
+      return ex;
+    }
+    var lk = { source: a.id, target: b.id, k: kind, w: w };
+    linkKeys.set(key, lk);
+    links.push(lk);
     a.deg++; b.deg++;
     adj.get(a.id).add(b.id); adj.get(b.id).add(a.id);
+    return lk;
   }
 
   async function expand(n, silent) {
@@ -444,6 +459,7 @@
       list.forEach(function (a) { addLink(n, ensureNode(a, n.x, n.y)); });
       n.expanded = true;
       refresh();
+      enrich(n);
       if (!list.length) setStatus('Aucun artiste lié pour ' + n.name);
     } catch (e) {
       setStatus('Erreur Deezer : ' + e.message);
@@ -452,6 +468,131 @@
       sim.alpha(0.7).restart();
       if (selected === n) renderCard();
     }
+  }
+
+  /* ---------- Sources etendues (experimental) : collaborations Deezer + ListenBrainz ---------- */
+  var gen = 0;                       /* change quand le graphe est remplace : annule les travaux en vol */
+  var extOn = false;
+  try { extOn = localStorage.getItem('mg-ext') === '1'; } catch (e) {}
+  var LB_ALGO = 'session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30';
+  var mbNext = 0;                    /* MusicBrainz : 1 requete par seconde au maximum */
+
+  function normName(s) {
+    return String(s || '').normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  }
+  function idOf(x) { return typeof x === 'object' ? x.id : x; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function alive(n, g) { return gen === g && byId.get(n.id) === n; }
+  /* A appeler apres chaque ajout fait entre deux requetes : sans cela la simulation lit des liens non rattaches. */
+  function syncSim() { sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.4).restart(); }
+
+  async function mbJson(url) {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      var wait = Math.max(0, mbNext - Date.now());
+      mbNext = Date.now() + wait + 1100;
+      if (wait) await sleep(wait);
+      var r = await fetch(url);
+      if (r.status === 503) { await sleep(2500); continue; }
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error('MusicBrainz ' + r.status);
+      return r.json();
+    }
+    throw new Error('MusicBrainz occupe');
+  }
+
+  /* Collaborations : les autres participants des titres les plus ecoutes de l'artiste. */
+  async function enrichCollab(n, g) {
+    var d = await dz('/artist/' + n.id + '/top?limit=50');
+    if (!alive(n, g)) return;
+    var cnt = new Map(), objs = new Map();
+    (d.data || []).forEach(function (t) {
+      (t.contributors || []).forEach(function (c) {
+        if (c.id === n.id) return;
+        cnt.set(c.id, (cnt.get(c.id) || 0) + 1);
+        objs.set(c.id, c);
+      });
+    });
+    var ranked = Array.from(cnt.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 12);
+    if (!ranked.length) return;
+    var max = ranked[0][1];
+    ranked.forEach(function (e) {
+      var c = objs.get(e[0]);
+      var m = byId.get(e[0]) || ensureNode(
+        { id: c.id, name: c.name, picture_medium: c.picture_medium || c.picture, nb_fan: c.nb_fan }, n.x, n.y);
+      addLink(n, m, 'c', e[1] / max);
+    });
+    syncSim();
+  }
+
+  /* ListenBrainz : artiste Deezer -> identifiant MusicBrainz (lien Deezer enregistre), puis voisins avec score. */
+  async function enrichLB(n, g) {
+    if (n.mbid === undefined) {
+      var res = 'https://www.deezer.com/artist/' + n.id;
+      var r = await mbJson('https://musicbrainz.org/ws/2/url?resource=' + encodeURIComponent(res) + '&inc=artist-rels&fmt=json');
+      n.mbid = null;
+      if (r && r.relations) {
+        for (var i = 0; i < r.relations.length; i++) {
+          if (r.relations[i].artist) { n.mbid = r.relations[i].artist.id; break; }
+        }
+      }
+    }
+    if (!alive(n, g)) return 'stop';
+    if (!n.mbid) return 'nomb';
+    var resp = await fetch('https://labs.api.listenbrainz.org/similar-artists/json?artist_mbids=' + n.mbid + '&algorithm=' + LB_ALGO);
+    if (!resp.ok) throw new Error('ListenBrainz ' + resp.status);
+    var items = await resp.json();
+    if (!alive(n, g)) return 'stop';
+    if (!Array.isArray(items) || !items.length) return 'empty';
+    var top = items[0].score || 1;
+    var byName = new Map();
+    nodes.forEach(function (m) { byName.set(normName(m.name), m); });
+    var extra = [];
+    items.forEach(function (it) {
+      var m = byName.get(normName(it.name));
+      if (m && m !== n) addLink(n, m, 'l', (it.score || 0) / top);
+      else if (!m) extra.push(it);
+    });
+    syncSim();
+    for (var j = 0; j < Math.min(8, extra.length); j++) {
+      var it = extra[j];
+      var sr = await dz('/search/artist?q=' + encodeURIComponent(it.name) + '&limit=5');
+      if (!alive(n, g)) return 'stop';
+      var hit = (sr.data || []).filter(function (x) { return normName(x.name) === normName(it.name); })
+        .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0];
+      if (!hit) continue;
+      addLink(n, byId.get(hit.id) || ensureNode(hit, n.x, n.y), 'l', (it.score || 0) / top);
+      syncSim();
+    }
+    return 'ok';
+  }
+
+  async function enrich(n) {
+    if (!extOn) return;
+    var g = gen;
+    n.ext = { txt: '' };
+    setStatus('Sources étendues : recherche…', null, null, 'msg');
+    var collabFailed = false, lb;
+    try { await enrichCollab(n, g); } catch (e) { collabFailed = true; }
+    try { lb = await enrichLB(n, g); } catch (e) { lb = 'err'; }
+    if (!alive(n, g)) return;
+    var c = 0, l = 0, both = 0;
+    links.forEach(function (lk) {
+      if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
+      if (!lk.k) return;
+      if (lk.k.length > 1) both++;
+      if (lk.k.indexOf('c') >= 0) c++;
+      if (lk.k.indexOf('l') >= 0) l++;
+    });
+    var parts = ['collaborations : ' + (collabFailed ? 'indisponibles' : c)];
+    parts.push('ListenBrainz : ' + (lb === 'nomb' ? 'artiste absent de MusicBrainz'
+      : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : l));
+    if (both) parts.push('confirmés : ' + both);
+    n.ext.txt = 'Sources étendues, ' + parts.join(' · ') + '.';
+    refresh();
+    sim.alpha(0.5).restart();
+    setStatus(n.ext.txt, null, null, 'msg');
+    if (selected === n) renderCard();
   }
 
   /* ---------- Focus ---------- */
@@ -505,8 +646,26 @@
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    pass(function (lk) { return !isDim(lk); }, f ? 0.35 : 1);
-    if (dimRoot) pass(isDim, f ? 0.12 : 0.33);
+    function plain(lk) { return !lk.k || lk.k === 'd'; }
+    pass(function (lk) { return plain(lk) && !isDim(lk); }, f ? 0.35 : 1);
+    if (dimRoot) pass(function (lk) { return plain(lk) && isDim(lk); }, f ? 0.12 : 0.33);
+
+    /* Liens des sources etendues : pointille fin = collaboration, tirets = ListenBrainz,
+       trait plein epais = confirme par plusieurs sources ; l'epaisseur suit le poids. */
+    for (i = 0; i < links.length; i++) {
+      l = links[i];
+      if (plain(l) || typeof l.source !== 'object' || !vis(l.source) || !vis(l.target)) continue;
+      if (f && (l.source === f || l.target === f)) continue;
+      var multi = l.k.length > 1, wgt = 1 + (l.w || 0) * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
+      ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1);
+      ctx.strokeStyle = multi ? C.ink : C.link;
+      ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
+      ctx.setLineDash(multi ? [] : (l.k === 'c' ? [1.5 / k, 3.5 / k] : [5 / k, 4 / k]));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
 
     if (f) {
       ctx.beginPath();
@@ -738,19 +897,20 @@
       }),
       links: links.map(function (l) {
         return [typeof l.source === 'object' ? l.source.id : l.source,
-                typeof l.target === 'object' ? l.target.id : l.target];
+                typeof l.target === 'object' ? l.target.id : l.target, l.k || 'd', l.w || 0];
       }),
       selectedId: selected ? selected.id : null
     };
   }
 
   function restore(s) {
+    gen++;
     var old = new Map(byId);
     nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
     s.nodes.forEach(function (d) {
       var n = old.get(d.id);
       if (n) {
-        n.deg = 0;
+        n.deg = 0; n.ext = undefined;
         nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
       } else {
         n = ensureNode({ id: d.id, name: d.name, picture_medium: d.pic, nb_fan: d.fans }, d.x, d.y);
@@ -761,7 +921,7 @@
     });
     s.links.forEach(function (p) {
       var a = byId.get(p[0]), b = byId.get(p[1]);
-      if (a && b) addLink(a, b);
+      if (a && b) addLink(a, b, p[2], p[3]);
     });
     hovered = null;
     selected = (s.selectedId != null && byId.get(s.selectedId)) || null;
@@ -867,6 +1027,8 @@
           if (n.pinned) { n.fx = n.x; n.fy = n.y; } else { n.fx = null; n.fy = null; }
           draw();
         } },
+      { label: 'Enrichir (sources étendues)', disabled: !extOn || !n.expanded || !!n.ext,
+        run: function () { commit(); enrich(n); } },
       { sep: true },
       { label: 'Élaguer les feuilles (' + lv.length + ')', disabled: !lv.length,
         run: function () {
@@ -990,6 +1152,7 @@
     renderTracks(n);
     var hints = [];
     if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
+    if (n.ext && n.ext.txt) hints.push(n.ext.txt);
     if (n.tracks === null) hints.push('Aucun extrait disponible');
     el('chint').textContent = hints.join(' ');
     updateNow();
@@ -1112,6 +1275,14 @@
     clearTimeout(hoverTimer);
     if (!hoverPlay && playing && playing.hover) stopAudio();
     else if (hoverPlay && hovered) hoverStart(hovered);
+  });
+  el('extopt').checked = extOn;
+  el('extlegend').hidden = !extOn;
+  el('extopt').addEventListener('change', function (e) {
+    extOn = e.target.checked;
+    el('extlegend').hidden = !extOn;
+    try { localStorage.setItem('mg-ext', extOn ? '1' : '0'); } catch (err) {}
+    if (extOn && selected && selected.expanded && !selected.ext) { commit(); enrich(selected); }
   });
 
   var seeking = false;
@@ -1236,6 +1407,7 @@
   });
   document.getElementById('fit').addEventListener('click', fit);
   function clearGraph() {
+    gen++;
     hovered = null; selected = null; visible = null; stopAudio();
     nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
     refresh(); renderCard();
