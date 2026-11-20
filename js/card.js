@@ -521,15 +521,17 @@ function renderDisc(n) {
     return;
   }
   if (!n.albums || !n.albums.length) { discNote(ol, T('Aucun album chez Deezer')); return; }
-  parts.main.slice(0, 24).forEach(function (a) { discItem(n, a, ol); });
-  if (parts.main.length > 24) discNote(ol, T('+ {n} autres', { n: parts.main.length - 24 }));
+  parts.main.slice(0, n.discAll ? parts.main.length : 24).forEach(function (a) { discItem(n, a, ol); });
+  if (parts.main.length > 24 && !n.discAll) {
+    discNote(ol, T('Afficher les {n} autres sorties', { n: parts.main.length - 24 }), function () { n.discAll = true; renderDisc(n); });
+  }
   if (parts.other.length) {
     if (!n.discOther) {
       discNote(ol, T('+ {n} sorties d’un autre genre (homonyme ou featuring possible)', { n: parts.other.length }),
         function () { n.discOther = true; renderDisc(n); });
     } else {
       discNote(ol, T('Autre genre, homonyme ou featuring possible :'));
-      parts.other.slice(0, 24).forEach(function (a) { discItem(n, a, ol); });
+      parts.other.forEach(function (a) { discItem(n, a, ol); });
     }
   }
 }

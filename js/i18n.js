@@ -131,6 +131,7 @@ EN = {
   'Écoute de la carte : {name}': 'Map listening: {name}', 'Écoute de la carte terminée': 'Map listening finished',
   'Aucun voisin à écouter': 'No neighbour to play', 'Précédent': 'Previous', 'Suivant': 'Next', 'Arrêter': 'Stop',
   'Discographie': 'Discography',
+  'Afficher les {n} autres sorties': 'Show the {n} other releases',
   '+ {n} sorties d’un autre genre (homonyme ou featuring possible)': '+ {n} releases in another genre (namesake or featuring likely)',
   'Autre genre, homonyme ou featuring possible :': 'Another genre, namesake or featuring likely:', 'Discographie ({n})': 'Discography ({n})', 'Aucun album chez Deezer': 'No album on Deezer',
   'Aucun extrait pour cet album': 'No preview for this album', 'Album': 'Album', 'EP': 'EP', 'Single': 'Single', 'Compilation': 'Compilation',
