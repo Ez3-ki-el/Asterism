@@ -187,6 +187,9 @@
   #card .lk li { display: block; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; }
   #card .lk .pt { display: flex; align-items: center; gap: 6px; }
   #card .lk .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
+  #panel .ticks { display: flex; justify-content: space-between; margin: 1px 4px 0; color: var(--muted); font-size: 9.5px; }
+  #panel .ticks span { width: 1px; display: flex; flex-direction: column; align-items: center; white-space: nowrap; overflow: visible; }
+  #panel .ticks span::before { content: ""; width: 1px; height: 5px; background: var(--muted); margin-bottom: 1px; }
   #panel .lg { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
   #panel label.lg { cursor: pointer; }
   #panel .lg.zero { opacity: 0.55; }
@@ -204,6 +207,13 @@
   #card .lk .why { margin-left: 3.4em; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
   #card .lk .lknote { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
   #card.min .lk { display: none; }
+
+  #ltip { position: absolute; z-index: 7; max-width: 300px; padding: 8px 10px; background: var(--bg);
+    border: 1px solid var(--ink); font-size: 11px; line-height: 1.4; pointer-events: none; }
+  #ltip[hidden] { display: none; }
+  #ltip .th { color: var(--accent); margin-bottom: 4px; }
+  #ltip .pt { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  #ltip .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
 
   #menu { position: absolute; z-index: 20; min-width: 210px; margin: 0; padding: 4px 0; list-style: none;
     border-color: var(--ink); }
@@ -314,6 +324,10 @@
       <label>Distance des liens <span class="v" id="distv">70</span>
         <input id="dist" type="range" min="30" max="200" step="5" value="70">
       </label>
+      <label>Score minimal <span class="v" id="minv">Tout</span>
+        <input id="minscore" type="range" min="0" max="100" step="5" value="0" aria-label="Score d'affinité minimal">
+      </label>
+      <div class="ticks" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
       <div class="legend" id="extlegend" hidden>
@@ -407,7 +421,7 @@
   /* ---------- Etat du graphe ---------- */
   var nodes = [], links = [];
   var byId = new Map(), adj = new Map(), linkKeys = new Map();
-  var hovered = null, selected = null, dragging = false;
+  var hovered = null, selected = null, dragging = false, hoveredLink = null;
   var focusDepth = 0, visible = null;
 
   var C = {};
@@ -443,14 +457,15 @@
   function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
   /* Types de liens affiches (cases de la legende) : d Deezer, c collaboration, e label, l ListenBrainz.
      Hors option « Sources etendues », tout est affiche, pour ne jamais masquer sans moyen de reafficher. */
-  var kindsOn = { d: true, c: true, e: true, l: true }, kindsVer = 0, shown = null;
+  var kindsOn = { d: true, c: true, e: true, l: true }, kindsVer = 0, shown = null, minScore = 0;
   try {
     var savedKinds = JSON.parse(localStorage.getItem('mg-kinds') || 'null');
     if (savedKinds) ['d', 'c', 'e', 'l'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
   } catch (e) {}
+  try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) {}
   function kOn(c) { return !extOn || kindsOn[c]; }
   /* Lettres de types d'un lien qui sont actuellement cochees ('' = lien masque). */
-  function ekOf(lk) {
+  function ekRaw(lk) {
     if (lk._kv !== kindsVer || lk._kk !== lk.k) {
       var s = '', src = lk.k || 'd';
       for (var i = 0; i < src.length; i++) if (kOn(src[i])) s += src[i];
@@ -458,11 +473,13 @@
     }
     return lk._ek;
   }
+  /* Un lien est visible si un de ses types est coche et si son score atteint le seuil des reglages. */
+  function ekOf(lk) { return lk.w >= minScore ? ekRaw(lk) : ''; }
   function isShown(n) { return !shown || shown.has(n.id); }
   function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
   /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
   function recomputeShown() {
-    if (!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l)) { shown = null; return; }
+    if ((!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l)) && minScore <= 0) { shown = null; return; }
     shown = new Set();
     links.forEach(function (lk) {
       if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
@@ -481,6 +498,10 @@
       e.textContent = '(' + c + ')';
       e.parentNode.parentNode.classList.toggle('zero', c === 0);
     });
+    var hid = 0;
+    links.forEach(function (lk) { if (ekRaw(lk) && lk.w < minScore) hid++; });
+    var pct = Math.round(minScore * 100);
+    el('minv').textContent = pct ? '≥ ' + pct + ' % (' + hid + (hid > 1 ? ' masqués)' : ' masqué)') : 'Tout';
   }
   function applyKinds() {
     kindsVer++;
@@ -494,6 +515,8 @@
     recomputeVisible();
     recomputeShown();
     updateLegend();
+    hoveredLink = null;
+    hideLinkTip();
     document.getElementById('empty').hidden = nodes.length > 0;
     setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
   }
@@ -1007,6 +1030,12 @@
       ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
     }
 
+    if (hoveredLink && ekOf(hoveredLink) && typeof hoveredLink.source === 'object') {
+      ctx.beginPath();
+      ctx.moveTo(hoveredLink.source.x, hoveredLink.source.y); ctx.lineTo(hoveredLink.target.x, hoveredLink.target.y);
+      ctx.strokeStyle = C.accent; ctx.lineWidth = 2 / k; ctx.stroke();
+    }
+
     var now = performance.now();
     for (i = 0; i < nodes.length; i++) {
       n = nodes[i];
@@ -1058,23 +1087,22 @@
       }
     }
 
-    /* Score de compatibilite au milieu du lien entre le noeud survole et le noeud selectionne. */
-    if (f && selected && f !== selected) {
-      var hl = linkKeys.get(f.id < selected.id ? f.id + '-' + selected.id : selected.id + '-' + f.id);
-      if (hl && ekOf(hl)) {
-        var ptxt = Math.round(scoreOf(hl).score * 100) + ' %';
-        var mx = (f.x + selected.x) / 2, my = (f.y + selected.y) / 2;
-        ctx.save();
-        ctx.font = (12 / k) + 'px ' + C.mono;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        var tw = ctx.measureText(ptxt).width, pd = 6 / k;
-        ctx.globalAlpha = 1; ctx.fillStyle = C.bg;
-        ctx.fillRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
-        ctx.strokeStyle = C.accent; ctx.lineWidth = 1 / k;
-        ctx.strokeRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
-        ctx.fillStyle = C.accent; ctx.fillText(ptxt, mx, my);
-        ctx.restore();
-      }
+    /* Score de compatibilite au milieu du lien survole, ou du lien entre le noeud survole et la selection. */
+    var hl = hoveredLink || ((f && selected && f !== selected)
+      ? linkKeys.get(f.id < selected.id ? f.id + '-' + selected.id : selected.id + '-' + f.id) : null);
+    if (hl && ekOf(hl) && typeof hl.source === 'object') {
+      var ptxt = Math.round(scoreOf(hl).score * 100) + ' %';
+      var mx = (hl.source.x + hl.target.x) / 2, my = (hl.source.y + hl.target.y) / 2;
+      ctx.save();
+      ctx.font = (12 / k) + 'px ' + C.mono;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var tw = ctx.measureText(ptxt).width, pd = 6 / k;
+      ctx.globalAlpha = 1; ctx.fillStyle = C.bg;
+      ctx.fillRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
+      ctx.strokeStyle = C.accent; ctx.lineWidth = 1 / k;
+      ctx.strokeRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
+      ctx.fillStyle = C.accent; ctx.fillText(ptxt, mx, my);
+      ctx.restore();
     }
 
     var base = clamp((k - 0.3) / 0.4, 0, 1);
@@ -1216,14 +1244,91 @@
   sel.call(drag).call(zoom).on('dblclick.zoom', null);
   sel.call(zoom.transform, d3.zoomIdentity.translate(window.innerWidth / 2, window.innerHeight / 2));
 
+  /* Lien sous le curseur : distance en pixels ecran au segment ; un noeud a toujours la priorite. */
+  var LPAD = PAD + 3, ltipTimer = null;
+  function distToSeg(px, py, ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+    var t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+  function linkAt(pos) {
+    var best = null, bd = LPAD;
+    for (var i = 0; i < links.length; i++) {
+      var l = links[i];
+      if (typeof l.source !== 'object' || !ekOf(l) || !vis(l.source) || !vis(l.target)) continue;
+      var d = distToSeg(pos[0], pos[1], transform.applyX(l.source.x), transform.applyY(l.source.y),
+        transform.applyX(l.target.x), transform.applyY(l.target.y));
+      if (d <= bd) { bd = d; best = l; }
+    }
+    return best;
+  }
+
+  /* Infobulle d'un lien : score et origine de chaque preuve, avec le trait de la source. */
+  var ltip = document.createElement('div');
+  ltip.id = 'ltip'; ltip.hidden = true;
+  app.appendChild(ltip);
+  function moveLinkTip(cx, cy) {
+    var r = app.getBoundingClientRect();
+    var x = Math.min(cx - r.left + 14, W - ltip.offsetWidth - 8);
+    var y = Math.min(cy - r.top + 16, H - ltip.offsetHeight - 8);
+    ltip.style.left = Math.max(8, x) + 'px';
+    ltip.style.top = Math.max(8, y) + 'px';
+  }
+  function showLinkTip(lk, cx, cy) {
+    var sc = scoreOf(lk);
+    ltip.textContent = '';
+    var h = document.createElement('div');
+    h.className = 'th';
+    h.textContent = lk.source.name + ' et ' + lk.target.name + ' : ' + Math.round(sc.score * 100) + ' %';
+    ltip.appendChild(h);
+    sc.parts.forEach(function (x) {
+      var pt = document.createElement('div'); pt.className = 'pt';
+      pt.insertAdjacentHTML('afterbegin', sampleSvg(x.src));
+      var t = document.createElement('span'); t.textContent = x.text;
+      pt.appendChild(t);
+      ltip.appendChild(pt);
+    });
+    ltip.hidden = false;
+    moveLinkTip(cx, cy);
+  }
+  function hideLinkTip() { clearTimeout(ltipTimer); if (ltip) ltip.hidden = true; }
+
   canvas.addEventListener('pointermove', function (e) {
     if (dragging || e.pointerType === 'touch') return;
-    var n = nodeAt(evPos(e));
-    canvas.style.cursor = n ? 'pointer' : 'grab';
+    var pos = evPos(e);
+    var n = nodeAt(pos);
+    var lk = n ? null : linkAt(pos);
+    canvas.style.cursor = (n || lk) ? 'pointer' : 'grab';
     setHover(n);
+    if (lk !== hoveredLink) {
+      hoveredLink = lk;
+      if (lk) showLinkTip(lk, e.clientX, e.clientY); else hideLinkTip();
+      draw();
+    } else if (lk) {
+      moveLinkTip(e.clientX, e.clientY);
+    }
   });
-  canvas.addEventListener('pointerleave', function () { if (!dragging) setHover(null); });
-  canvas.addEventListener('click', function (e) { if (!nodeAt(evPos(e))) select(null); });
+  canvas.addEventListener('pointerleave', function () {
+    if (dragging) return;
+    setHover(null);
+    if (hoveredLink) { hoveredLink = null; hideLinkTip(); draw(); }
+  });
+  canvas.addEventListener('click', function (e) {
+    var pos = evPos(e);
+    if (nodeAt(pos)) return;
+    var lk = linkAt(pos);
+    if (lk) {
+      hoveredLink = lk; showLinkTip(lk, e.clientX, e.clientY); draw();
+      clearTimeout(ltipTimer);
+      if (window.matchMedia('(pointer: coarse)').matches) {
+        ltipTimer = setTimeout(function () { hoveredLink = null; hideLinkTip(); draw(); }, 4500);
+      }
+      return;
+    }
+    hoveredLink = null; hideLinkTip();
+    select(null);
+  });
   canvas.addEventListener('dblclick', function (e) {
     var n = nodeAt(evPos(e));
     if (n) { select(n); expand(n); renderCard(); }
@@ -1703,6 +1808,14 @@
       try { localStorage.setItem('mg-kinds', JSON.stringify(kindsOn)); } catch (err) {}
       applyKinds();
     });
+  });
+
+  /* Jauge de score minimal : masque les liens dont le score est inferieur au seuil. */
+  el('minscore').value = Math.round(minScore * 100);
+  el('minscore').addEventListener('input', function (e) {
+    minScore = (+e.target.value) / 100;
+    try { localStorage.setItem('mg-min', String(Math.round(minScore * 100))); } catch (err) {}
+    applyKinds();
   });
 
   var seeking = false;
