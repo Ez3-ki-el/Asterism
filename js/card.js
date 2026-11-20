@@ -93,6 +93,7 @@ function renderCard() {
   renderOut(n);
   renderWd(n);
   renderMarks(n);
+  renderStyles(n);
   renderDisc(n);
   var hints = [];
   var dd = dDeg(n), few = n.expanded && !n.loading && dd <= 3;
@@ -296,7 +297,7 @@ function renderOut(n) {
 }
 
 /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
-var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3', p: '10 3 2 3 2 3' };
+var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3', p: '10 3 2 3 2 3', r: '14 4', s: '1 2' };
 function sampleSvg(src) {
   return '<svg viewBox="0 0 24 6" aria-hidden="true"><line x1="1" y1="3" x2="23" y2="3" stroke="currentColor" stroke-width="1.3"'
     + (DASH[src] ? ' stroke-dasharray="' + DASH[src] + '"' : ' stroke-opacity="0.5"') + '/></svg>';
@@ -404,6 +405,29 @@ async function playTrack(n, title, url, kind, idx) {
     if (tok === playToken) { playing = null; renderCard(); el('chint').textContent = T('Lecture bloquée par le navigateur'); }
     return false;
   }
+}
+
+/* Styles Discogs : ligne dans la fiche pour l'artiste selectionne ; avec les sources etendues, on charge aussi
+   les styles des voisins (file cadencee) pour ajuster le score des liens, puis on rafraichit les scores. */
+var styleTimer = null;
+function styleRefreshSoon() {
+  clearTimeout(styleTimer);
+  styleTimer = setTimeout(function () { refreshWeights(); recomputeShown(); updateLegend(); renderCard(); draw(); }, 700);
+}
+function loadStylesFor(n) {
+  ensureStyles(n).then(function () { if (selected === n) { renderCard(); if (extOn) styleRefreshSoon(); } });
+  if (!extOn) return;
+  neighboursByScore(n).slice(0, 20).forEach(function (m) {
+    if (m.ds === undefined) ensureStyles(m).then(function (ds) { if (ds) styleRefreshSoon(); });
+  });
+}
+function renderStyles(n) {
+  var box = el('cstyles'), top = n.ds ? topStyles(n.ds, 5) : [];
+  box.hidden = !top.length;
+  if (!top.length) return;
+  box.textContent = '';
+  var b = document.createElement('b'); b.textContent = T('Styles (Discogs)') + (LANG === 'en' ? ': ' : ' : ');
+  box.append(b, top.join(' · '));
 }
 
 /* ---------- Ecouter la carte : l'artiste puis ses voisins, du plus compatible au moins compatible ---------- */

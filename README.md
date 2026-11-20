@@ -20,11 +20,11 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 - **Ouvrir ailleurs** : logos Deezer, Spotify, Apple Music, YouTube Music, Bandcamp et SoundCloud. Lien exact quand Wikidata connaît l'artiste (souligné en orange), sinon recherche sur le nom.
 - **Identité et liens (Wikidata)** : genres, pays, dates, site officiel, Instagram, Discogs, Wikipédia, pour les artistes qui ont une fiche Wikidata.
 - **Score de compatibilité** de chaque lien, avec ses preuves source par source (au survol d'un lien et dans la fiche).
-- **Sources étendues** (option expérimentale, décochée par défaut) : collaborations Deezer, artistes du même label, voisins ListenBrainz, relations MusicBrainz (même artiste ou groupe). Un panneau montre l'avancement de chaque source, et les nouveaux artistes arrivent tous ensemble. Quand Deezer propose peu de voisins, la fiche invite à les essayer.
+- **Sources étendues** (option expérimentale, décochée par défaut) : radio Deezer de l'artiste, collaborations Deezer, artistes du même label, voisins ListenBrainz, relations MusicBrainz (même artiste ou groupe). Les styles Discogs (Freetekno, Tribal, House...) de l'artiste et de ses voisins ajustent le score : des styles proches le renforcent, des styles sans rapport le réduisent. Les styles de l'artiste sélectionné s'affichent dans sa fiche. Un panneau montre l'avancement de chaque source, et les nouveaux artistes arrivent tous ensemble. Quand Deezer propose peu de voisins, la fiche invite à les essayer.
 - **Réglages** en quatre groupes : Affichage (focus, distance, score minimal, petits artistes), Écoute, Sources, Carte.
 - **Petits artistes** : estompe les artistes au-delà d'un nombre de fans, pour faire ressortir les petits.
 - **Partage** : un lien qui contient toute la carte, ou une image PNG.
-- **Menu contextuel**, **annuler et rétablir**, **écoute au survol** (option), **mode clair ou sombre**, **français ou anglais**, aide intégrée (bouton `?`).
+- **Menu contextuel**, **annuler et rétablir**, **écoute au survol** (option), **mode clair ou sombre**, **français ou anglais (selon la langue du navigateur : français si elle est française, anglais sinon ; le bouton FR / EN mémorise ton choix)**, aide intégrée (bouton `?`).
 
 ## Raccourcis
 
@@ -98,9 +98,10 @@ Limites : un `robots.txt` placé dans ce dépôt serait ignoré (les robots ne l
 
 - **Deezer** : appels en JSONP (`output=jsonp`), car l'API ne renvoie pas d'en-têtes CORS. Environ 50 requêtes toutes les 5 secondes par adresse IP ; les sources étendues sont cadencées et réessayées en cas de quota dépassé. Le mode JSONP n'est pas garanti dans la durée.
 - **Apple (iTunes Search)** : sans clé. Si `fetch` est refusé par le navigateur ou le réseau, un second essai passe par une balise script (JSONP, sans le paramètre `output=jsonp` que l'API refuse).
+- **Discogs** : sans clé, environ 25 requêtes par minute et par visiteur ; file cadencée à une requête toutes les 2,6 s, réponses en cache 30 jours.
 - **MusicBrainz** : une requête toutes les 1,3 seconde au plus, réessais en cas de 503. **ListenBrainz**, **Wikidata** : sans clé, CORS ouvert.
 - **Liens de partage** : toutes les valeurs sont vérifiées avant usage (identifiants entiers, empreintes d'image, types de liens, preuves), car un lien peut venir de n'importe qui.
-- **Stockage local** : réglages (`mg-theme`, `mg-lang`, `mg-hover`, `mg-ext`, `mg-kinds`, `mg-min`, `mg-top`, `mg-fan`, `mg-hint`, `mg-markf`), mes écoutes (`mg-marks`) et cache `mg-cache` (fiche Wikidata 7 jours, identifiant MusicBrainz 30 jours, 600 entrées au plus).
+- **Stockage local** : réglages (`mg-theme`, `mg-lang`, `mg-hover`, `mg-ext`, `mg-kinds`, `mg-min`, `mg-top`, `mg-fan`, `mg-hint`, `mg-markf`), mes écoutes (`mg-marks`) et cache `mg-cache` (fiche Wikidata 7 jours, identifiant MusicBrainz et styles Discogs 30 jours, 600 entrées au plus).
 - **d3** : chargé depuis jsDelivr en version figée (`d3@7.9.0`).
 - **Logos** : icônes monochromes Simple Icons (CC0), intégrées dans `js/card.js`. Les marques appartiennent à leurs propriétaires.
 - **Typographie** : piles de polices système. Aucune police externe n'est chargée.

@@ -7,11 +7,12 @@
 var gen = 0;                       /* change quand le graphe est remplace : annule les travaux en vol */
 var extOn = false;
 /* Traduction : les cles sont les textes francais ; {x} marque une valeur a inserer. Le dictionnaire EN est rempli plus bas. */
-var LANG = 'fr', EN = {};
+/* Langue : francais si le navigateur est en francais (fr, fr-FR, fr-CA...), anglais pour toute autre langue ou si le
+   navigateur n'en indique aucune. Un clic sur FR / EN est memorise et l'emporte ensuite. */
+var LANG = String(navigator.language || 'en').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en', EN = {};
 try {
   var savedLang = localStorage.getItem('mg-lang');
-  LANG = (savedLang === 'en' || savedLang === 'fr') ? savedLang
-    : ((navigator.language || 'fr').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en');
+  if (savedLang === 'en' || savedLang === 'fr') LANG = savedLang;
 } catch (e) { dbg('ignore', e); }
 function loc(n) { return Number(n).toLocaleString(LANG === 'en' ? 'en-US' : 'fr-FR'); }
 function T(fr, v) {
@@ -76,6 +77,30 @@ async function enrichCollab(n, g) {
 }
 
 /* ListenBrainz : artiste Deezer -> identifiant MusicBrainz (lien Deezer enregistre), puis voisins avec score. */
+/* Radio Deezer : le melange que Deezer calcule autour de l'artiste. Un artiste qui y revient souvent est un voisin fort,
+   et la radio depasse la limite de 20 artistes similaires, utile pour les petites scenes. */
+async function enrichRadio(n, g) {
+  var d = await dzp('/artist/' + n.id + '/radio?limit=50');
+  if (!alive(n, g)) return 'stop';
+  var cnt = new Map(), objs = new Map();
+  (d.data || []).forEach(function (t) {
+    var a = t.artist;
+    if (!a || !a.id || a.id === n.id) return;
+    cnt.set(a.id, (cnt.get(a.id) || 0) + 1); objs.set(a.id, a);
+  });
+  var ranked = Array.from(cnt.entries()).sort(function (x, y) { return y[1] - x[1]; }).slice(0, 12);
+  if (!ranked.length) return 'empty';
+  held(n.id, function () {
+    ranked.forEach(function (e) {
+      var a = objs.get(e[0]);
+      var m = byId.get(e[0]) || ensureNode({ id: a.id, name: a.name, picture_medium: a.picture_medium || a.picture, nb_fan: a.nb_fan }, n.x, n.y);
+      addLink(n, m, 'r', 0, { r: { count: e[1] } });
+    });
+  });
+  syncSim();
+  return 'ok';
+}
+
 async function enrichLB(n, g) {
   await ensureMbid(n);
   if (!alive(n, g)) return 'stop';
@@ -350,7 +375,7 @@ async function enrichLabel(n, g) {
 
 /* ----- Panneau de progression : un travail par artiste enrichi (le plus recent est affiche) ----- */
 var xjobs = [];
-var XSRC = [['c', 'Collaborations'], ['e', 'Labels'], ['l', 'ListenBrainz'], ['p', 'Projets (MusicBrainz)']];
+var XSRC = [['r', 'Radio Deezer'], ['c', 'Collaborations'], ['e', 'Labels'], ['l', 'ListenBrainz'], ['p', 'Projets (MusicBrainz)']];
 function removeJob(job) {
   var i = xjobs.indexOf(job);
   if (i >= 0) xjobs.splice(i, 1);
@@ -387,14 +412,15 @@ async function enrich(n) {
   var g = gen;
   n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.', live: true };
   n.enriching = true; startAnim();
-  var job = { id: n.id, name: n.name, st: { c: 'run', e: 'run', l: 'run', p: 'run' }, sum: null };
+  var job = { id: n.id, name: n.name, st: { r: 'run', c: 'run', e: 'run', l: 'run', p: 'run' }, sum: null };
   xjobs.push(job); renderProg();
   function mark(k, ok) { job.st[k] = ok ? 'done' : 'fail'; renderProg(); }
   if (selected === n) renderCard();
-  var collabFailed = false, lb, pj, labelsUsed = [], labelFailed = false;
+  var collabFailed = false, lb, pj, rd, labelsUsed = [], labelFailed = false;
   try {
     /* Les trois sources partent en meme temps ; leurs ajouts restent retenus jusqu'a la fin de la derniere. */
     await Promise.all([
+      enrichRadio(n, g).then(function (r) { rd = r; }, function (e) { dbg('radio deezer', e); rd = 'err'; }).then(function () { mark('r', rd !== 'err'); }),
       enrichCollab(n, g).catch(function (e) { dbg('collaborations', e); collabFailed = true; }).then(function () { mark('c', !collabFailed); }),
       enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function (e) { dbg('labels', e); labelFailed = true; }).then(function () { mark('e', !labelFailed); }),
       enrichLB(n, g).then(function (r) { lb = r; }, function (e) { dbg('listenbrainz', e); lb = 'err'; }).then(function () { mark('l', lb !== 'err'); }),
@@ -406,20 +432,22 @@ async function enrich(n) {
     if (gen !== g || !alive(n, g)) removeJob(job);
   }
   if (!alive(n, g)) return;
-  var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0;
+  var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0, rCount = 0;
   links.forEach(function (lk) {
     if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
     if (!lk.k) return;
-    if (/[clep]/.test(lk.k)) anyExt++;
+    if (/[clepr]/.test(lk.k)) anyExt++;
     if (lk.k.length > 1) both++;
     if (lk.k.indexOf('c') >= 0) c++;
     if (lk.k.indexOf('l') >= 0) l++;
     if (lk.k.indexOf('p') >= 0) pCount++;
+    if (lk.k.indexOf('r') >= 0) rCount++;
     if (lk.k.indexOf('e') >= 0) eCount++;
   });
   /* Resume court (barre d'etat, titre du detail) et detail ligne par ligne, replie dans la fiche. */
   var rej = n.ext.rej || 0, res = n.ext.res || 0, mbf = !!n.ext.mbfail;
-  var lines = [function () { return [T('Collaborations'), collabFailed ? T('indisponibles') : String(c)]; }];
+  var lines = [function () { return [T('Radio Deezer'), rd === 'err' ? T('indisponible') : rd === 'empty' ? T('aucun voisin') : String(rCount)]; }];
+  lines.push(function () { return [T('Collaborations'), collabFailed ? T('indisponibles') : String(c)]; });
   lines.push(function () {
     return [T('Labels'), labelFailed ? T('indisponibles') : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')];
   });
@@ -445,6 +473,7 @@ async function enrich(n) {
   refresh();
   sim.alpha(0.5).restart();
   job.sum = n.ext.sumf; renderProg();
+  if (selected === n) loadStylesFor(n);
   setTimeout(function () { removeJob(job); }, 5000);
   if (selected === n) renderCard();
 }

@@ -16,7 +16,7 @@ window.addEventListener('unhandledrejection', function (e) { dbg('promesse rejet
 
 /* Cache local entre deux visites, par identifiant Deezer : fiche Wikidata (7 jours) et identifiant MusicBrainz (30 jours).
    Un seul objet dans localStorage, plafonne a 600 entrees (les plus anciennes partent) ; vide en cas de quota depasse. */
-var CACHE_KEY = 'mg-cache', CACHE_MAX = 600, CACHE_TTL = { wd: 7 * 864e5, mb: 30 * 864e5 }, cacheObj = null, cacheTimer = null;
+var CACHE_KEY = 'mg-cache', CACHE_MAX = 600, CACHE_TTL = { wd: 7 * 864e5, mb: 30 * 864e5, ds2: 30 * 864e5 }, cacheObj = null, cacheTimer = null;
 function cacheLoad() {
   if (cacheObj) return cacheObj;
   try { cacheObj = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { dbg('cache illisible', e); cacheObj = {}; }
@@ -121,10 +121,10 @@ var sim = d3.forceSimulation(nodes)
 function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
 /* Types de liens affiches (cases de la legende) : d Deezer, c collaboration, e label, l ListenBrainz.
    Hors option « Sources etendues », tout est affiche, pour ne jamais masquer sans moyen de reafficher. */
-var kindsOn = { d: true, c: true, e: true, l: true, p: true }, kindsVer = 0, shown = null, minScore = 0;
+var kindsOn = { d: true, c: true, e: true, l: true, p: true, r: true }, kindsVer = 0, shown = null, minScore = 0;
 try {
   var savedKinds = JSON.parse(localStorage.getItem('mg-kinds') || 'null');
-  if (savedKinds) ['d', 'c', 'e', 'l', 'p'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
+  if (savedKinds) ['d', 'c', 'e', 'l', 'p', 'r'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
 } catch (e) { dbg('ignore', e); }
 try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) { dbg('ignore', e); }
 /* Sources etendues decochees : seuls les liens Deezer restent visibles ; cocher la case (reglages, ou « Essayer » de la fiche)
@@ -165,7 +165,7 @@ function isShown(n) { return !n.hold && (!shown || shown.has(n.id)); }
 function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
 /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
 function recomputeShown() {
-  if (extOn && kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p && minScore <= 0) { shown = null; return; }
+  if (extOn && kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p && kindsOn.r && minScore <= 0) { shown = null; return; }
   shown = new Set();
   links.forEach(function (lk) {
     if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
@@ -174,7 +174,7 @@ function recomputeShown() {
 }
 function refreshWeights() { links.forEach(function (lk) { lk.w = scoreOf(lk).score; }); }
 function updateLegend() {
-  var cnt = { d: 0, c: 0, e: 0, l: 0, p: 0 };
+  var cnt = { d: 0, c: 0, e: 0, l: 0, p: 0, r: 0 };
   links.forEach(function (lk) {
     var s = lk.k || 'd';
     for (var i = 0; i < s.length; i++) if (cnt[s[i]] !== undefined) cnt[s[i]]++;
@@ -256,6 +256,7 @@ function mergeEv(dst, src) {
     dst.l = { score: src.l.score, top: src.l.top, rank: src.l.rank };
   }
   if (src.c && (!dst.c || src.c.count > dst.c.count)) dst.c = { count: src.c.count };
+  if (src.r && (!dst.r || src.r.count > dst.r.count)) dst.r = { count: src.r.count };
   if (src.p) {
     dst.p = dst.p || { rels: [] };
     src.p.rels.forEach(function (r) {
@@ -284,8 +285,58 @@ function projLine(r) {
     : r.t === 'is person' ? T('{s} et {o} : même personne', v)
     : T('{s} et {o} : collaboration', v);
 }
+/* ---------- Styles Discogs : profil de styles d'un artiste (ex. Freetekno, Tribal, Acid) ----------
+   Une recherche des sorties par nom d'artiste, sans cle. Discogs accepte environ 25 requetes par minute et par
+   visiteur : file cadencee a une requete toutes les 2,6 s, reponse mise en cache 30 jours (n.ds, null = rien trouve). */
+var dgNext = 0;
+async function dgJson(url) {
+  var wait = Math.max(0, dgNext - Date.now());
+  dgNext = Date.now() + wait + 2600;
+  if (wait) await new Promise(function (r) { setTimeout(r, wait); });
+  var resp = await fetch(url);
+  if (resp.status === 429) { dgNext = Date.now() + 30000; throw new Error('Discogs 429'); }
+  if (!resp.ok) throw new Error('Discogs ' + resp.status);
+  return resp.json();
+}
+function ensureStyles(n) {
+  if (n.ds !== undefined) return Promise.resolve(n.ds);
+  var c = cacheGet('ds2', n.id);
+  if (c !== undefined) { n.ds = c; return Promise.resolve(c); }
+  if (n.dsP) return n.dsP;
+  n.dsP = dgJson('https://api.discogs.com/database/search?type=release&per_page=50&artist=' + encodeURIComponent(n.name)).then(function (d) {
+    /* Titre Discogs : « Artiste - Sortie », avec parfois « (2) » pour distinguer des homonymes, retire ici. */
+    var want = normName(n.name), cnt = {}, used = 0;
+    ((d && d.results) || []).forEach(function (r) {
+      /* Partie artiste du titre, decoupee sur & , / feat. vs : l'artiste doit y figurer (ecarte surtout les compilations). */
+      var whos = String(r.title || '').split(' - ')[0].split(/\s*(?:&|,|\/|\bfeat\.?|\bft\.?|\bvs\.?|\bx\b)\s*/i)
+        .map(function (w) { return normName(w.replace(/\s*\(\d+\)\s*$/, '')); });
+      if (whos.indexOf(want) < 0) return;
+      used++;
+      (r.style || []).forEach(function (st) { cnt[st] = (cnt[st] || 0) + 1; });
+    });
+    n.ds = used && Object.keys(cnt).length ? { n: used, s: cnt } : null;
+    n.dsP = null;
+    cacheSet('ds2', n.id, n.ds);
+    return n.ds;
+  }, function (e) { dbg('discogs', e); n.dsP = null; return undefined; });
+  return n.dsP;
+}
+function styleCos(a, b) {
+  var dot = 0, na = 0, nb = 0;
+  Object.keys(a).forEach(function (k) { na += a[k] * a[k]; if (b[k]) dot += a[k] * b[k]; });
+  Object.keys(b).forEach(function (k) { nb += b[k] * b[k]; });
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}
+function topStyles(ds, k) {
+  return Object.keys(ds.s).sort(function (x, y) { return ds.s[y] - ds.s[x]; }).slice(0, k);
+}
+function commonStyles(a, b, k) {
+  return Object.keys(a).filter(function (x) { return b[x]; })
+    .sort(function (x, y) { return Math.min(b[y], a[y]) - Math.min(b[x], a[x]); }).slice(0, k);
+}
+
 function scoreOf(lk) {
-  var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1;
+  var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1, penal = false;
   function add(s, src, name, lines) { parts.push({ src: src, s: s, name: name, lines: lines }); prod *= (1 - s); }
   if ((ev.d || k.indexOf('d') >= 0) && kOn('d')) {
     var ranks = ev.d ? Object.keys(ev.d.from).map(function (id) { return ev.d.from[id]; }) : [];
@@ -308,6 +359,10 @@ function scoreOf(lk) {
     add(Math.min(0.9, 0.75 + 0.05 * Math.max(0, pr.length - 1)), 'p', T('Même artiste ou groupe (MusicBrainz)'),
       pr.slice(0, 3).map(projLine));
   }
+  if ((ev.r || k.indexOf('r') >= 0) && kOn('r')) {
+    var rc = ev.r ? ev.r.count : 1;
+    add(Math.min(0.8, 0.3 + 0.12 * rc), 'r', T('Radio Deezer'), [T(rc > 1 ? '{n} titres dans sa radio Deezer' : '{n} titre dans sa radio Deezer', { n: rc })]);
+  }
   if ((ev.e || k.indexOf('e') >= 0) && kOn('e')) {
     var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
     var se = 0.15 + 0.25 * e.cos + (e.match ? 0.2 : 0);
@@ -315,7 +370,21 @@ function scoreOf(lk) {
     add(se, 'e', T('Label : {names}', { names: e.labels.join(', ') || '?' }), [T('Genres comparables à {n} %', { n: Math.round(e.cos * 100) })]
       .concat(e.match ? [T('Même style (MusicBrainz)')] : []));
   }
-  return { score: 1 - prod, parts: parts };
+  /* Styles Discogs (sources etendues) : des styles proches renforcent le lien, des styles sans rapport le reduisent. */
+  if (extOn) {
+    var na = byId.get(idOf(lk.source)), nb = byId.get(idOf(lk.target));
+    if (na && nb && na.ds && nb.ds) {
+      var sc = styleCos(na.ds.s, nb.ds.s), common = commonStyles(na.ds.s, nb.ds.s, 3);
+      if (sc >= 0.4) {
+        add(0.15 + 0.35 * sc, 's', T('Styles Discogs'), [T('Styles proches à {n} %', { n: Math.round(sc * 100) })]
+          .concat(common.length ? [T('En commun : {list}', { list: common.join(', ') })] : []));
+      } else if (sc < 0.1 && na.ds.n >= 3 && nb.ds.n >= 3) {
+        penal = true;
+        parts.push({ src: 's', s: 0, name: T('Styles Discogs'), lines: [T('Styles très différents : score réduit')] });
+      }
+    }
+  }
+  return { score: (1 - prod) * (penal ? 0.6 : 1), parts: parts };
 }
 
 function addLink(a, b, kind, w, ev) {

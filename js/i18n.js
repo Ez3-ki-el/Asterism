@@ -39,7 +39,7 @@ EN = {
   '{n} masqués': '{n} hidden', '{n} masqué': '{n} hidden',
   /* fiche */
   'Fermer': 'Close', 'Réduire ou agrandir la fiche': 'Collapse or expand the card',
-  'Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label, projets) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.': 'The score combines the evidence from each source (Deezer, ListenBrainz, collaboration, label, projects): the more they agree, the higher it climbs. A link backed by a single source stays modest.',
+  'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.': 'The score combines the evidence from each source (Deezer, Deezer radio, ListenBrainz, collaboration, label, projects, Discogs styles): the more they agree, the higher it climbs. A link backed by a single source stays modest.',
   '{n} fans': '{n} fans', '{n} liens': '{n} links', '{n} lien': '{n} link',
   '{vc} liens affichés sur {n}': '{vc} of {n} links shown',
   'Chargement': 'Loading', 'Exploré': 'Explored', 'Explorer': 'Explore', 'Écouter': 'Listen',
@@ -125,6 +125,9 @@ EN = {
   'Recherche étendue : {name}': 'Extended search: {name}', 'en cours': 'running', 'terminé': 'done', '+ {n} autres': '+ {n} more',
   'Les nouveaux artistes apparaîtront tous ensemble à la fin.': 'New artists will all appear together at the end.',
   'En écoute': 'Now playing', 'En pause': 'Paused', 'Lecteur': 'Player', 'Ouvrir la fiche': 'Open the card',
+  'Radio Deezer': 'Deezer radio', '{n} titres dans sa radio Deezer': '{n} tracks in its Deezer radio', '{n} titre dans sa radio Deezer': '{n} track in its Deezer radio',
+  'Styles Discogs': 'Discogs styles', 'Styles (Discogs)': 'Styles (Discogs)', 'Styles proches à {n} %': 'Styles {n} % similar',
+  'En commun : {list}': 'In common: {list}', 'Styles très différents : score réduit': 'Very different styles: score reduced',
   'Mes écoutes': 'My listening', 'Aimés': 'Liked', 'Écoutés': 'Listened',
   'Mettre en avant mes écoutes': 'Highlight my listening', 'Aucun artiste de cette catégorie sur la carte': 'No artist of this category on the map', 'Aucun artiste dans cette catégorie.': 'No artist in this category.',
   'Aucun artiste marqué. Dans la fiche d’un artiste, choisis « À écouter », « Aimé » ou « Écouté ».': 'No artist marked yet. On an artist card, choose "To listen", "Liked" or "Listened".',
@@ -178,7 +181,7 @@ function langLabel() {
   el('lang').setAttribute('title', T('Langue'));
   el('lang2').textContent = LANG === 'fr' ? 'English' : 'Français';
 }
-var CARD_NOTE_FR = 'Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label, projets) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.';
+var CARD_NOTE_FR = 'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.';
 function applyLang() {
   document.documentElement.lang = LANG;
   document.title = T('Asterism : carte des artistes similaires (dig musical)');

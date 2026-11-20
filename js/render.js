@@ -28,6 +28,7 @@ function select(n) {
   renderCard();
   draw();
   if (n) ensureWd(n).then(function () { if (selected === n) renderCard(); });
+  if (n) loadStylesFor(n);
 }
 
 /* ---------- Rendu ---------- */
@@ -80,7 +81,8 @@ function draw() {
     ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
     ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
       : ek === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k]
-      : ek === 'p' ? [10 / k, 3 / k, 2 / k, 3 / k, 2 / k, 3 / k] : [5 / k, 4 / k]));
+      : ek === 'p' ? [10 / k, 3 / k, 2 / k, 3 / k, 2 / k, 3 / k]
+      : ek === 'r' ? [14 / k, 4 / k] : [5 / k, 4 / k]));
     ctx.stroke();
   }
   ctx.setLineDash([]); ctx.globalAlpha = 1;
