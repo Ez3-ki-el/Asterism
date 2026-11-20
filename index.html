@@ -1722,7 +1722,7 @@
     if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
     if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits fournis par Apple : Deezer n’en propose pas pour cet artiste.');
-    if (n.tracks === null) hints.push('Aucun extrait disponible');
+    if (n.tracks === null) hints.push('Aucun extrait disponible' + (n.appleNote ? ' (repli Apple : ' + n.appleNote + ')' : ''));
     el('chint').textContent = hints.join(' ');
     updateNow();
     if (playing && !playing.paused) startAnim();
@@ -1875,7 +1875,8 @@
       try {
         var alt = await appleTracks(n);
         if (alt.length) { list = alt; n.tracksSrc = 'apple'; }
-      } catch (e) { /* repli indisponible : on garde ce que Deezer a donne */ }
+        else n.appleNote = 'aucun titre au nom exact chez Apple';
+      } catch (e) { n.appleNote = 'injoignable (' + (e && e.message ? e.message : 'erreur réseau') + ')'; }
     }
     n.tracks = list.length ? list : null;
     return n.tracks;
