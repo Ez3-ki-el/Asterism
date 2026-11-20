@@ -1721,6 +1721,7 @@
     var hints = [];
     if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
+    if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits fournis par Apple : Deezer n’en propose pas pour cet artiste.');
     if (n.tracks === null) hints.push('Aucun extrait disponible');
     el('chint').textContent = hints.join(' ');
     updateNow();
@@ -1838,16 +1839,45 @@
     el('cnowt').textContent = n.tracks[playing.idx].title;
   }
 
+  /* Repli : quand Deezer n'a aucun extrait, l'API de recherche d'Apple (iTunes, sans cle, CORS ouvert) en fournit
+     de 30 secondes. Pas d'identifiant commun entre les deux services : on n'accepte que les titres dont le nom
+     d'artiste est identique au notre (casse, accents et apostrophes mis a part), pour limiter les homonymes. */
+  function strictName(s) {
+    return String(s || '').normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase()
+      .replace(/[‘’`´]/g, "'").replace(/\s+/g, ' ').trim();
+  }
+  async function appleTracks(n) {
+    var url = 'https://itunes.apple.com/search?entity=song&attribute=artistTerm&limit=25&country=FR&term=' + encodeURIComponent(n.name);
+    var resp = await fetch(url);
+    if (!resp.ok) throw new Error('Apple ' + resp.status);
+    var d = await resp.json(), want = strictName(n.name), seen = new Set(), list = [];
+    (d.results || []).forEach(function (r) {
+      if (!r.previewUrl || strictName(r.artistName) !== want) return;
+      var key = strictName(r.trackName);
+      if (seen.has(key) || list.length >= 5) return;
+      seen.add(key);
+      list.push({ title: r.trackName, url: r.previewUrl });
+    });
+    return list;
+  }
   async function loadTracks(n) {
     if (n.tracks !== undefined) return n.tracks;
+    var list;
     try {
       var d = await dz('/artist/' + n.id + '/top?limit=5');
-      var list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
-      n.tracks = list.length ? list : null;
+      list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
     } catch (e) {
       setStatus('Erreur Deezer : ' + e.message);
       return null;
     }
+    n.tracksSrc = 'deezer';
+    if (!list.some(function (t) { return t.url; })) {
+      try {
+        var alt = await appleTracks(n);
+        if (alt.length) { list = alt; n.tracksSrc = 'apple'; }
+      } catch (e) { /* repli indisponible : on garde ce que Deezer a donne */ }
+    }
+    n.tracks = list.length ? list : null;
     return n.tracks;
   }
 
