@@ -2,62 +2,75 @@
 
 ![Asterism](og.png)
 
-Asterism est une carte interactive des artistes proches les uns des autres, dans l'esprit de l'ancien TuneGlue Music Map. On cherche un artiste, on ouvre sa fiche, et on explore le graphe de proche en proche. Les données viennent de l'API publique de Deezer.
+Asterism est une carte interactive des artistes proches les uns des autres, dans l'esprit de l'ancien TuneGlue Music Map. On cherche un artiste, on ouvre sa fiche, et on explore le graphe de proche en proche. Les données viennent d'API publiques, sans clé : Deezer d'abord, complété par iTunes, MusicBrainz, ListenBrainz et Wikidata.
 
 Un astérisme est une figure d'étoiles reconnaissable, comme la Grande Ourse. C'est ce que dessinent des artistes reliés entre eux, et c'est aussi le nom du signe typographique ⁂ qui a inspiré le logo.
 
-Un seul fichier de page, `index.html`. Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigateur.
+Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigateur. On peut ouvrir `index.html` directement depuis le disque.
 
 ## Fonctions
 
-- **Recherche** d'un artiste, ou bouton **Surprends-moi** (genre Deezer au hasard, puis deux sauts parmi les artistes liés).
-- **Fiche fixe** au clic sur un nœud : Explorer, Écouter, Top 5 titres. La barre de lecture se déplace pour avancer dans l'extrait de 30 secondes, et un anneau pulse autour de l'avatar qui joue.
-- **Focus** : n'afficher qu'un nœud et ses voisins à 1, 2 ou 3 sauts.
-- **Menu contextuel** (clic droit ou appui long) : explorer, écouter, focus, épingler, élaguer les feuilles, supprimer.
-- **Annuler et rétablir** pour les suppressions comme pour les ajouts.
-- **Écoute au survol**, en option, désactivée par défaut.
-- Mode **clair ou sombre**, qui suit le système, et usage tactile.
+- **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
+- **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
+- **Repli Apple** : quand Deezer n'a aucun extrait, ceux d'Apple (iTunes) prennent le relais, avec un appariement strict sur le nom.
+- **Ouvrir ailleurs** : logos Deezer, Spotify, Apple Music, YouTube Music, Bandcamp et SoundCloud. Lien exact quand Wikidata connaît l'artiste (souligné en orange), sinon recherche sur le nom.
+- **Identité et liens (Wikidata)** : genres, pays, dates, site officiel, Instagram, Discogs, Wikipédia, pour les artistes qui ont une fiche Wikidata.
+- **Score de compatibilité** de chaque lien, avec ses preuves source par source (au survol d'un lien et dans la fiche).
+- **Sources étendues** (option expérimentale, décochée par défaut) : collaborations Deezer, artistes du même label, voisins ListenBrainz, relations MusicBrainz (même artiste ou groupe). Un panneau montre l'avancement de chaque source, et les nouveaux artistes arrivent tous ensemble. Quand Deezer propose peu de voisins, la fiche invite à les essayer.
+- **Réglages** en quatre groupes : Affichage (focus, distance, score minimal, petits artistes), Écoute, Sources, Carte.
+- **Petits artistes** : estompe les artistes au-delà d'un nombre de fans, pour faire ressortir les petits.
+- **Partage** : un lien qui contient toute la carte, ou une image PNG.
+- **Menu contextuel**, **annuler et rétablir**, **écoute au survol** (option), **mode clair ou sombre**, **français ou anglais**, aide intégrée (bouton `?`).
 
 ## Raccourcis
 
 | Action | Souris | Clavier | Tactile |
 | --- | --- | --- | --- |
 | Ouvrir la fiche | clic | | tap |
-| Explorer un nœud | double-clic | | double-tap |
-| Menu du nœud | clic droit | | appui long |
-| Supprimer le nœud sélectionné | | Suppr | |
+| Explorer un artiste | double-clic | Entrée | double-tap |
+| Menu de l'artiste | clic droit | | appui long |
+| Passer à l'artiste voisin | | flèches | |
+| Chercher un artiste | | `/` | |
+| Zoomer, dézoomer | molette, boutons + et − | `+`, `-` | pincement |
+| Supprimer l'artiste sélectionné | | Suppr | |
 | Annuler, rétablir | | Ctrl+Z, Ctrl+Y | |
-| Fermer fiche et menu | | Échap | |
+| Fermer l'aide, puis la fiche | | Échap | |
+| Afficher l'aide | bouton `?` | `?` | bouton `?` |
 
-L'adresse de la page mémorise l'artiste de départ : `.../#Radiohead` ouvre directement la carte de Radiohead.
+L'adresse de la page mémorise l'artiste de départ : `.../#Radiohead` ouvre directement la carte de Radiohead. Un lien de partage commence par `#s=` et contient la carte entière.
 
 ## Fichiers
 
 | Fichier | Rôle |
 | --- | --- |
-| `index.html` | La page entière : styles, script et balises de référencement. |
+| `index.html` | Structure de la page et balises de référencement, puis chargement des scripts. |
+| `style.css` | Tous les styles (variables de thème, bureau, puis mobile). |
+| `js/core.js` | Base : débogage, cache local, API Deezer, état du graphe, simulation, types de liens et score. |
+| `js/sources.js` | Sources étendues et panneau de progression. |
+| `js/render.js` | Dessin du graphe sur le canevas et interactions (zoom, glisser, survol). |
+| `js/actions.js` | Menu contextuel, historique, partage par lien et image. |
+| `js/card.js` | Fiche de l'artiste : écoute, top des titres, repli Apple, Wikidata, logos. |
+| `js/ui.js` | Recherche, réglages, bulles de retour, zoom, aide, clavier, thème. |
+| `js/i18n.js` | Dictionnaire anglais, traduction du HTML statique, bascule de langue. |
+| `js/boot.js` | Démarrage. |
 | `og.png` | Image d'aperçu pour le partage (1200 x 630), sans photo d'artiste. |
 | `logo.svg` | Le logo seul, qui s'adapte au mode clair ou sombre. |
 | `sitemap.xml` | Plan du site, à déclarer dans la Search Console. |
 | `.nojekyll` | Désactive le traitement Jekyll de GitHub Pages, inutile ici. |
 
+Les scripts sont des scripts classiques, pas des modules : ils partagent la portée globale et sont chargés dans l'ordre ci-dessus. C'est ce qui permet d'ouvrir `index.html` depuis le disque (les modules y sont bloqués par le navigateur). Conséquence : un fichier ne doit pas appeler, au chargement, une fonction définie dans un fichier suivant. Les appels faits plus tard (clics, minuteries) ne posent pas de problème.
+
+## Développer
+
+- **Mode débogage** : ajouter `?debug=1` à l'adresse (ou mettre `mg-debug` à `1` dans le stockage local). Les erreurs volontairement ignorées (source indisponible, stockage refusé, lien de partage illisible) sont alors écrites dans la console.
+- **Traductions** : tout texte affiché passe par `T('texte français', { valeurs })` et doit avoir son entrée dans le dictionnaire `EN` de `js/i18n.js`. Le HTML statique est traduit automatiquement s'il a une entrée.
+- **Tester en local** : ouvrir `index.html` directement, ou servir le dossier (`python -m http.server`) pour tester sur téléphone.
+
 ## Publier sur GitHub Pages
 
-La page est statique, il suffit de la servir telle quelle.
+La page est statique, il suffit de la servir telle quelle : **Settings > Pages > Build and deployment**, source **Deploy from a branch**, branche `main`, dossier `/ (root)`. Chaque push sur `main` met le site à jour en une ou deux minutes.
 
-Avec l'interface web : créer le dépôt `Asterism`, y pousser ce dossier, puis **Settings > Pages > Build and deployment**, source **Deploy from a branch**, branche `main`, dossier `/ (root)`.
-
-Avec la CLI `gh`, depuis ce dossier :
-
-```
-git init -b main
-git add .
-git commit -m "Première version"
-gh repo create Asterism --public --source . --push
-gh api -X POST "repos/{owner}/{repo}/pages" -f "source[branch]=main" -f "source[path]=/"
-```
-
-Le site est ensuite disponible à l'adresse `https://<compte>.github.io/Asterism/` au bout d'une ou deux minutes. Si le compte ou le nom du dépôt changent, il faut mettre à jour cette adresse à quatre endroits : la balise `canonical`, les balises Open Graph et Twitter, les données structurées de `index.html`, et `sitemap.xml`.
+Si le compte ou le nom du dépôt changent, il faut mettre à jour l'adresse à quatre endroits : la balise `canonical`, les balises Open Graph et Twitter, les données structurées de `index.html`, et `sitemap.xml`. L'adresse de base des liens de partage ouverts depuis le disque est aussi dans `js/actions.js` (`SHARE_BASE`).
 
 ## Référencement
 
@@ -67,28 +80,27 @@ Ce qui est en place :
 - Un texte réel dans l'écran d'accueil, visible par tous les visiteurs, avec un seul `h1`.
 - Une image de partage et un plan du site.
 
-À faire après la publication :
+À faire, plutôt avec un nom de domaine :
 
-1. Vérifier le site dans la [Google Search Console](https://search.google.com/search-console) (propriété de type « préfixe d'URL », méthode « balise HTML »), puis y déclarer `sitemap.xml`.
+1. Vérifier le site dans la [Google Search Console](https://search.google.com/search-console), puis y déclarer `sitemap.xml`.
 2. Faire de même dans les outils pour webmasters de Bing.
 3. Obtenir quelques liens entrants : c'est ce qui compte le plus pour un petit outil de niche.
 
-Limites à connaître :
-
-- Un `robots.txt` placé dans ce dépôt serait ignoré : les robots ne le cherchent qu'à la racine du domaine `github.io`. Il n'y en a donc pas ici.
-- Les adresses du type `#Radiohead` ne sont pas indexées, car Google ignore ce qui suit le `#`. La page ne peut pas se classer sur des requêtes comme « artistes similaires à Radiohead » : cela demanderait des pages statiques par artiste, ce qui est un autre chantier.
+Limites : un `robots.txt` placé dans ce dépôt serait ignoré (les robots ne le cherchent qu'à la racine du domaine `github.io`), et les adresses du type `#Radiohead` ne sont pas indexées, car Google ignore ce qui suit le `#`.
 
 ## Notes techniques
 
-- **Deezer** : les appels passent en JSONP (`output=jsonp`), parce que l'API ne renvoie pas d'en-têtes CORS. Rien n'est stocké côté serveur.
-- **Quota** : Deezer limite à environ 50 requêtes toutes les 5 secondes par adresse IP. Chaque visiteur a donc son propre quota.
+- **Deezer** : appels en JSONP (`output=jsonp`), car l'API ne renvoie pas d'en-têtes CORS. Environ 50 requêtes toutes les 5 secondes par adresse IP ; les sources étendues sont cadencées et réessayées en cas de quota dépassé. Le mode JSONP n'est pas garanti dans la durée.
+- **Apple (iTunes Search)** : sans clé. Si `fetch` est refusé par le navigateur ou le réseau, un second essai passe par une balise script (JSONP, sans le paramètre `output=jsonp` que l'API refuse).
+- **MusicBrainz** : une requête toutes les 1,3 seconde au plus, réessais en cas de 503. **ListenBrainz**, **Wikidata** : sans clé, CORS ouvert.
+- **Liens de partage** : toutes les valeurs sont vérifiées avant usage (identifiants entiers, empreintes d'image, types de liens, preuves), car un lien peut venir de n'importe qui.
+- **Stockage local** : réglages (`mg-theme`, `mg-lang`, `mg-hover`, `mg-ext`, `mg-kinds`, `mg-min`, `mg-top`, `mg-fan`, `mg-hint`) et cache `mg-cache` (fiche Wikidata 7 jours, identifiant MusicBrainz 30 jours, 600 entrées au plus).
 - **d3** : chargé depuis jsDelivr en version figée (`d3@7.9.0`).
-- **Stockage local** : le thème (`mg-theme`) et l'option d'écoute au survol (`mg-hover`).
-- **Dépendance fragile** : le mode JSONP de Deezer n'est pas garanti dans la durée. Si Deezer le retirait, il faudrait passer par un petit proxy.
-- **Typographie** : piles de polices système (serif pour les titres, monospace pour les données). Aucune police externe n'est chargée.
+- **Logos** : icônes monochromes Simple Icons (CC0), intégrées dans `js/card.js`. Les marques appartiennent à leurs propriétaires.
+- **Typographie** : piles de polices système. Aucune police externe n'est chargée.
 
 ## Mentions
 
-Projet indépendant, sans lien avec Deezer. Les noms, images et extraits audio appartiennent à Deezer et aux ayants droit. Vérifier les conditions d'utilisation de l'API Deezer avant tout usage au-delà d'une démonstration personnelle.
+Projet indépendant, sans lien avec Deezer, Apple, Spotify ni les autres services cités. Les noms, images et extraits audio appartiennent à leurs ayants droit. Les données Wikidata sont sous licence CC0 ; Wikipédia n'est cité que par des liens. Vérifier les conditions d'utilisation de chaque API avant tout usage au-delà d'une démonstration personnelle.
 
 Licence : à choisir par l'auteur du dépôt.
