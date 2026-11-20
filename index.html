@@ -205,10 +205,13 @@
   #card .exl .wl a:hover { color: var(--accent); }
   #card .lk { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
   #card .lk[hidden] { display: none; }
-  #card .lk summary { cursor: pointer; list-style: none; color: var(--muted); font-size: 11px; padding: 4px 0; }
+  /* Titres de depliants en couleur de texte (blanc en sombre) : le « + » orange et le survol orange disent que c'est cliquable. */
+  #card .lk summary { cursor: pointer; list-style: none; color: var(--ink); font-size: 11px; padding: 4px 0; }
   #card .lk summary::-webkit-details-marker { display: none; }
-  #card .lk summary::before { content: "+ "; }
+  #card .lk summary::before { content: "+ "; color: var(--accent); }
   #card .lk[open] summary::before { content: "\2212 "; }
+  #card .lk summary:hover { color: var(--accent); }
+  #alisten { border-color: var(--accent); }
   #card .lk ol { list-style: none; margin: 2px 0 0; padding: 0; }
   #card .lk li { display: block; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; }
   #panel .ticks { display: flex; justify-content: space-between; margin: 1px 4px 0; color: var(--muted); font-size: 9.5px; }
