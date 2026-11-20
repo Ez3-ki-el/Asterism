@@ -410,7 +410,7 @@
 
   /* ---------- API Deezer (JSONP, sans cle) ---------- */
   var jid = 0;
-  function jsonp(url, timeout) {
+  function jsonp(url, timeout, plain) {
     timeout = timeout || 8000;
     return new Promise(function (resolve, reject) {
       var cb = '__dz' + (++jid);
@@ -419,7 +419,7 @@
       function cleanup() { clearTimeout(t); delete window[cb]; s.remove(); }
       window[cb] = function (d) { cleanup(); resolve(d); };
       s.onerror = function () { cleanup(); reject(new Error('reseau')); };
-      s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'output=jsonp&callback=' + cb;
+      s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + (plain ? '' : 'output=jsonp&') + 'callback=' + cb;   /* plain : l'API d'Apple refuse output=jsonp */
       document.head.appendChild(s);
     });
   }
@@ -1848,9 +1848,16 @@
   }
   async function appleTracks(n) {
     var url = 'https://itunes.apple.com/search?entity=song&attribute=artistTerm&limit=25&country=FR&term=' + encodeURIComponent(n.name);
-    var resp = await fetch(url);
-    if (!resp.ok) throw new Error('Apple ' + resp.status);
-    var d = await resp.json(), want = strictName(n.name), seen = new Set(), list = [];
+    /* Deux voies : fetch, puis une balise script (JSONP) si le navigateur ou le reseau refuse la premiere. */
+    var d;
+    try {
+      var resp = await fetch(url);
+      if (!resp.ok) throw new Error('Apple ' + resp.status);
+      d = await resp.json();
+    } catch (e1) {
+      try { d = await jsonp(url, 8000, true); } catch (e2) { throw new Error((e1 && e1.message) + ' ; script : ' + (e2 && e2.message)); }
+    }
+    var want = strictName(n.name), seen = new Set(), list = [];
     (d.results || []).forEach(function (r) {
       if (!r.previewUrl || strictName(r.artistName) !== want) return;
       var key = strictName(r.trackName);
