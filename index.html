@@ -488,12 +488,12 @@
   function syncSim() { sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.4).restart(); }
 
   async function mbJson(url) {
-    for (var attempt = 0; attempt < 2; attempt++) {
+    for (var attempt = 0; attempt < 3; attempt++) {
       var wait = Math.max(0, mbNext - Date.now());
-      mbNext = Date.now() + wait + 1100;
+      mbNext = Date.now() + wait + 1300;
       if (wait) await sleep(wait);
       var r = await fetch(url);
-      if (r.status === 503) { await sleep(2500); continue; }
+      if (r.status === 503) { await sleep(2500 * (attempt + 1)); continue; }
       if (r.status === 404) return null;
       if (!r.ok) throw new Error('MusicBrainz ' + r.status);
       return r.json();
@@ -596,9 +596,64 @@
     return na && nb ? dot / Math.sqrt(na * nb) : 0;
   }
 
-  /* Un label reunit des artistes de tous les genres : on ne garde que les candidats dont les genres
-     d'albums ressemblent a ceux de l'artiste (similarite cosinus >= 0,75), et le poids du lien suit
-     cette ressemblance. Les autres sont comptes dans n.ext.rej. */
+  /* --- Description de style via MusicBrainz : texte libre (psytrance, techno...) --- */
+  var STYLE_STOP = new Set(['duo', 'trio', 'band', 'group', 'producer', 'producers', 'musician', 'singer', 'artist',
+    'project', 'from', 'with', 'collective', 'based', 'music', 'electronic', 'austrian', 'portuguese', 'french',
+    'german', 'british', 'american', 'italian', 'spanish', 'swedish', 'japanese', 'brazilian', 'dutch', 'belgian',
+    'russian', 'polish', 'swiss', 'canadian', 'australian', 'israeli', 'greek', 'turkish', 'mexican', 'indian']);
+  var STYLE_ALIASES = [
+    [/psy[\s-]?trance|psychedelic trance|dark[\s-]?psy|goa( trance)?|full[\s-]?on|forest psy/g, ' psytrance '],
+    [/drum (and|&|n) bass|drum'n'bass|dnb/g, ' dnb '],
+    [/hip[\s-]?hop|\brap\b/g, ' hiphop ']
+  ];
+  function styleTokens(text) {
+    var t = ' ' + String(text || '').toLowerCase() + ' ';
+    STYLE_ALIASES.forEach(function (p) { t = t.replace(p[0], p[1]); });
+    var out = new Set();
+    t.split(/[^\p{L}\p{N}]+/u).forEach(function (w) { if (w.length >= 4 && !STYLE_STOP.has(w)) out.add(w); });
+    return out;
+  }
+  function styleMatch(a, b) {
+    var A = styleTokens(a), B = styleTokens(b), hit = false;
+    A.forEach(function (w) { if (B.has(w)) hit = true; });
+    return hit;
+  }
+  function mbPartsText(o) {
+    var parts = [o.disambiguation || ''];
+    (o.genres || []).forEach(function (x) { parts.push(x.name); });
+    (o.tags || []).forEach(function (x) { parts.push(x.name); });
+    return parts.join(' ');
+  }
+  /* Identifiant MusicBrainz d'un artiste Deezer, par le lien Deezer enregistre dans MusicBrainz. */
+  async function ensureMbid(n) {
+    if (n.mbid !== undefined) return n.mbid;
+    var r = await mbJson('https://musicbrainz.org/ws/2/url?resource=' +
+      encodeURIComponent('https://www.deezer.com/artist/' + n.id) + '&inc=artist-rels&fmt=json');
+    n.mbid = null;
+    if (r && r.relations) {
+      for (var i = 0; i < r.relations.length; i++) {
+        if (r.relations[i].artist) { n.mbid = r.relations[i].artist.id; break; }
+      }
+    }
+    return n.mbid;
+  }
+  async function mbTextsByName(names) {
+    var q = names.map(function (s) { return 'artist:"' + String(s).replace(/["\\]/g, ' ') + '"'; }).join(' OR ');
+    var d = await mbJson('https://musicbrainz.org/ws/2/artist/?query=' + encodeURIComponent(q) + '&fmt=json&limit=100');
+    var best = new Map();
+    ((d && d.artists) || []).forEach(function (a) {
+      if ((a.score || 0) < 85) return;
+      var key = normName(a.name), cur = best.get(key);
+      if (!cur || a.score > cur.score) best.set(key, a);
+    });
+    var out = new Map();
+    best.forEach(function (a, key) { out.set(key, mbPartsText(a)); });
+    return out;
+  }
+
+  /* Un label reunit des artistes de tous les genres : on garde les candidats dont les genres d'albums
+     ressemblent a ceux de l'artiste (cosinus >= 0,75). Un candidat rejete est repeche si sa description
+     MusicBrainz rejoint celle de l'artiste (ex. psytrance). Compteurs : n.ext.rej et n.ext.res. */
   var LABEL_MIN_COS = 0.75;
   async function enrichLabel(n, g) {
     var albs = (await dz('/artist/' + n.id + '/albums?limit=6')).data || [];
@@ -614,7 +669,17 @@
     if (!ranked.length) return [];
     var srcProf = await genreProfile(n.id);
     if (!alive(n, g)) return [];
-    var used = [], rejected = 0;
+    var srcText = '', mbFailed = false;
+    try {
+      if (await ensureMbid(n)) {
+        if (n.mbText === undefined) {
+          n.mbText = mbPartsText(await mbJson('https://musicbrainz.org/ws/2/artist/' + n.mbid + '?inc=tags+genres&fmt=json') || {});
+        }
+        srcText = n.mbText || '';
+      }
+    } catch (e) { mbFailed = true; /* pas de description : on se contente des genres Deezer */ }
+    if (!alive(n, g)) return [];
+    var used = [], rejected = 0, rescued = 0;
     for (var j = 0; j < ranked.length; j++) {
       var name = ranked[j][0];
       var found = (await dz('/search/album?q=' + encodeURIComponent('label:"' + name + '"') + '&limit=50')).data || [];
@@ -630,29 +695,48 @@
       var size = roster.size;
       if (!size) continue;
       var base = Math.max(0.1, Math.min(0.6, 1 / (1 + size / 10)));
-      var cap = (size >= 40 || found.length >= 50) ? 3 : 4, added = 0, kept = 0;
+      var cap = (size >= 40 || found.length >= 50) ? 3 : 6, added = 0, kept = 0;
       var cands = Array.from(roster.values()).sort(function (a, b) { return b.c - a.c; }).slice(0, 12);
+      var scored = [];
       for (var k = 0; k < cands.length; k++) {
-        var ent = cands[k];
-        if (!hasPicture(ent.a)) { rejected++; continue; }
-        var prof = await genreProfile(ent.a.id);
+        var cd = cands[k];
+        if (!hasPicture(cd.a)) { rejected++; continue; }
+        var prof = await genreProfile(cd.a.id);
         if (!alive(n, g)) return used;
-        var cos = srcProf.size ? cosine(srcProf, prof) : 1;
-        if (cos < LABEL_MIN_COS) { rejected++; continue; }
-        var m = byId.get(ent.a.id);
+        scored.push({ ent: cd, cos: srcProf.size ? cosine(srcProf, prof) : 1, match: false });
+      }
+      if (scored.length && srcText) {
+        var texts;
+        try { texts = await mbTextsByName(scored.map(function (x) { return x.ent.a.name; })); } catch (e) { texts = new Map(); mbFailed = true; }
+        if (!alive(n, g)) return used;
+        scored.forEach(function (x) {
+          var t = texts.get(normName(x.ent.a.name));
+          x.match = !!(t && styleMatch(srcText, t));
+        });
+      }
+      var accepted = scored.filter(function (x) {
+        if (x.cos >= LABEL_MIN_COS) return true;
+        if (x.match) { rescued++; return true; }
+        rejected++;
+        return false;
+      });
+      /* Un style qui correspond passe avant la simple ressemblance des genres Deezer. */
+      accepted.sort(function (a, b) { return ((b.match ? 1 : 0) + b.cos) - ((a.match ? 1 : 0) + a.cos); });
+      accepted.forEach(function (x) {
+        var m = byId.get(x.ent.a.id);
         if (!m) {
-          if (added >= cap) continue;
-          m = ensureNode({ id: ent.a.id, name: ent.a.name, picture_medium: ent.a.picture_medium || ent.a.picture, nb_fan: ent.a.nb_fan }, n.x, n.y);
+          if (added >= cap) return;
+          m = ensureNode({ id: x.ent.a.id, name: x.ent.a.name, picture_medium: x.ent.a.picture_medium || x.ent.a.picture,
+            nb_fan: x.ent.a.nb_fan }, n.x, n.y);
           added++;
         }
-        addLink(n, m, 'e', base * cos);
+        addLink(n, m, 'e', base * Math.max(x.cos, x.match ? 0.8 : 0));
         kept++;
-        syncSim();
-      }
+      });
       if (kept) used.push(name);
       syncSim();
     }
-    if (n.ext) n.ext.rej = rejected;
+    if (n.ext) { n.ext.rej = rejected; n.ext.res = rescued; n.ext.mbfail = mbFailed; }
     return used;
   }
 
@@ -679,7 +763,9 @@
     var parts = ['collaborations : ' + (collabFailed ? 'indisponibles' : c)];
     parts.push('labels : ' + (labelFailed ? 'indisponibles'
       : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')
-        + (n.ext.rej ? ', ' + n.ext.rej + ' écartés (genre différent ou sans photo)' : '')));
+        + (n.ext.rej ? ', ' + n.ext.rej + ' écartés (genre différent ou sans photo)' : '')
+        + (n.ext.res ? ', ' + n.ext.res + ' retrouvés par le style MusicBrainz' : '')
+        + (n.ext.mbfail ? ' (style MusicBrainz indisponible, réessaie plus tard)' : '')));
     parts.push('ListenBrainz : ' + (lb === 'nomb' ? 'artiste absent de MusicBrainz'
       : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : l));
     if (both) parts.push('confirmés : ' + both);
