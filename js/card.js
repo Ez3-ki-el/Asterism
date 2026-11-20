@@ -605,6 +605,14 @@ var marks = {};
 try { marks = JSON.parse(localStorage.getItem('mg-marks') || '{}') || {}; } catch (e) { dbg('marques illisibles', e); marks = {}; }
 function saveMarks() {
   try { localStorage.setItem('mg-marks', JSON.stringify(marks)); } catch (e) { dbg('marques', e); }
+  updateMyCount();
+}
+/* Compteur du bouton « Mes ecoutes » de la barre de recherche. */
+function updateMyCount() {
+  var c = el('mylistcount'), k = Object.keys(marks).length;
+  if (!c) return;
+  c.textContent = k ? String(k) : '';
+  c.hidden = !k;
 }
 function setMark(n, s) {
   if (marks[n.id] && marks[n.id].s === s) delete marks[n.id];
@@ -739,6 +747,7 @@ function renderMyList() {
   foot.append(note, ex); box.appendChild(foot);
 }
 el('mylistbtn').addEventListener('click', openMyList);
+updateMyCount();
 document.addEventListener('pointerdown', function (e) {
   var b = el('mylist');
   if (!b.hidden && !b.contains(e.target) && !el('mylistbtn').contains(e.target)) closeMyList();
