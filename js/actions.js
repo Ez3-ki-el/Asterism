@@ -244,12 +244,15 @@ function leaves(n) {
   return out;
 }
 
+/* Retire un artiste et ses liens, puis les voisins qui n'avaient de lien qu'avec lui (sauf artistes de depart et epingles) :
+   sans cela ils resteraient seuls sur la carte. Renvoie le nombre d'artistes retires ; une annulation restaure le tout. */
 function removeNode(n, silent) {
-  if (!byId.has(n.id)) return;
+  if (!byId.has(n.id)) return 0;
   if (!silent) commit();
   if (playing && playing.id === n.id) stopAudio();
   if (selected === n) select(null);
   if (hovered === n) hovered = null;
+  var touched = [];
   for (var i = links.length - 1; i >= 0; i--) {
     var l = links[i];
     var a = typeof l.source === 'object' ? l.source.id : l.source;
@@ -257,18 +260,29 @@ function removeNode(n, silent) {
     if (a !== n.id && b !== n.id) continue;
     var other = byId.get(a === n.id ? b : a);
     if (other) {
-      other.deg--; adj.get(other.id).delete(n.id);
-      if (other.deg === 0) other.expanded = false;
+      if (!l.hold) other.deg--;
+      adj.get(other.id).delete(n.id);
+      if (other.deg <= 0) other.expanded = false;
+      touched.push(other);
     }
     linkKeys.delete(a < b ? a + '-' + b : b + '-' + a);
     links.splice(i, 1);
   }
   nodes.splice(nodes.indexOf(n), 1);
   byId.delete(n.id); adj.delete(n.id);
-  refresh();
-  renderCard();
-  if (!silent) toast(T('Nœud supprimé'), T('Annuler'), undo);
-  sim.alpha(0.4).restart();
+  var removed = 1;
+  touched.forEach(function (o) {
+    if (!byId.has(o.id) || o.root || o.pinned) return;
+    var still = links.some(function (lk) { return idOf(lk.source) === o.id || idOf(lk.target) === o.id; });
+    if (!still) removed += removeNode(o, true);
+  });
+  if (!silent) {
+    refresh();
+    renderCard();
+    toast(removed > 1 ? T('{n} nœuds supprimés', { n: removed }) : T('Nœud supprimé'), T('Annuler'), undo);
+    sim.alpha(0.4).restart();
+  }
+  return removed;
 }
 
 function menuItems(n) {
@@ -309,6 +323,7 @@ function menuItems(n) {
       run: function () {
         commit();
         lv.forEach(function (m) { removeNode(m, true); });
+        refresh(); renderCard(); sim.alpha(0.4).restart();
         toast(T('{n} nœuds supprimés', { n: lv.length }), T('Annuler'), undo);
       } },
     { label: T('Supprimer le nœud'), danger: true, run: function () { removeNode(n); } }
