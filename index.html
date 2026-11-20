@@ -207,6 +207,12 @@
   #card .lk .why { margin-left: 3.4em; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
   #card .lk .lknote { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
   #card.min .lk { display: none; }
+  #card .out { margin: 8px 0 0; border-top: 0; padding-top: 0; }
+  #card .outl { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 4px 0 2px; }
+  #card .outl a { color: var(--ink); font-size: 11px; text-decoration: none; border-bottom: 1px solid var(--line); padding: 2px 0; }
+  #card .outl a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  #card .outl a small { color: var(--muted); font-size: 9.5px; margin-left: 4px; }
+  @media (pointer: coarse) { #card .outl a { padding: 6px 0; } }
 
   #ltip { position: absolute; z-index: 7; max-width: 300px; padding: 8px 10px; background: var(--bg);
     border: 1px solid var(--ink); font-size: 11px; line-height: 1.4; pointer-events: none; }
@@ -369,6 +375,11 @@
         <div class="meta" id="cmeta"></div>
       </div>
     </div>
+    <details id="cout" class="lk out">
+      <summary>Ouvrir sur&hellip;</summary>
+      <div id="coutl" class="outl"></div>
+      <p class="lknote">Deezer ouvre la fiche de l&rsquo;artiste ; les autres services ouvrent une recherche sur son nom (un homonyme peut apparaître).</p>
+    </details>
     <div class="actions">
       <button id="aexp" type="button">Explorer</button>
       <button id="alisten" type="button">&Eacute;couter</button>
@@ -1694,6 +1705,7 @@
     el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top 5' : 'Top 5 titres');
     renderTracks(n);
     renderLinks(n);
+    renderOut(n);
     var hints = [];
     if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
@@ -1701,6 +1713,28 @@
     el('chint').textContent = hints.join(' ');
     updateNow();
     if (playing && !playing.paused) startAnim();
+  }
+
+  /* Liens vers l'artiste ailleurs : Deezer est exact (identifiant connu), les autres sont des recherches sur le nom,
+     sans cle ni API. Ouverts dans un nouvel onglet, sans referent. */
+  var OUT = [
+    ['Spotify', 'https://open.spotify.com/search/'],
+    ['Apple Music', 'https://music.apple.com/search?term='],
+    ['YouTube Music', 'https://music.youtube.com/search?q='],
+    ['Bandcamp', 'https://bandcamp.com/search?item_type=b&q='],
+    ['SoundCloud', 'https://soundcloud.com/search/people?q=']
+  ];
+  function renderOut(n) {
+    var box = el('coutl'), q = encodeURIComponent(n.name);
+    box.textContent = '';
+    function add(label, href, tag) {
+      var a = document.createElement('a');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = label;
+      if (tag) { var s = document.createElement('small'); s.textContent = tag; a.appendChild(s); }
+      box.appendChild(a);
+    }
+    add('Deezer', 'https://www.deezer.com/artist/' + n.id, 'direct');
+    OUT.forEach(function (o) { add(o[0], o[1] + q); });
   }
 
   /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
