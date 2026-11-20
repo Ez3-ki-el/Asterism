@@ -185,8 +185,6 @@
   #card .lk[open] summary::before { content: "\2212 "; }
   #card .lk ol { list-style: none; margin: 2px 0 0; padding: 0; }
   #card .lk li { display: block; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; }
-  #card .lk .pt { display: flex; align-items: center; gap: 6px; }
-  #card .lk .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
   #panel .ticks { display: flex; justify-content: space-between; margin: 1px 4px 0; color: var(--muted); font-size: 9.5px; }
   #panel .ticks span { width: 1px; display: flex; flex-direction: column; align-items: center; white-space: nowrap; overflow: visible; }
   #panel .ticks span::before { content: ""; width: 1px; height: 5px; background: var(--muted); margin-bottom: 1px; }
@@ -221,8 +219,11 @@
     border: 1px solid var(--ink); font-size: 11px; line-height: 1.4; pointer-events: none; }
   #ltip[hidden] { display: none; }
   #ltip .th { color: var(--accent); margin-bottom: 4px; }
-  #ltip .pt { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  #ltip .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
+  .prt { margin-top: 6px; }
+  .prt:first-child { margin-top: 0; }
+  .prt .ph { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+  .prt .ph svg { width: 24px; height: 6px; flex: none; }
+  .prt .pd { margin-left: 30px; color: var(--muted); }
 
   #menu { position: absolute; z-index: 20; min-width: 210px; margin: 0; padding: 4px 0; list-style: none;
     border-color: var(--ink); }
@@ -603,29 +604,29 @@
      une seule source reste donc modeste, et le score monte quand les sources concordent. */
   function scoreOf(lk) {
     var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1;
-    function add(s, src, text) { parts.push({ src: src, s: s, text: text }); prod *= (1 - s); }
+    function add(s, src, name, lines) { parts.push({ src: src, s: s, name: name, lines: lines }); prod *= (1 - s); }
     if ((ev.d || k.indexOf('d') >= 0) && kOn('d')) {
       var ranks = ev.d ? Object.keys(ev.d.from).map(function (id) { return ev.d.from[id]; }) : [];
       var best = ranks.length ? Math.min.apply(null, ranks) : 10, recip = ranks.length > 1;
       var sd = 0.35 + 0.5 * (1 - (best - 1) / 19);
       if (recip) sd = Math.min(0.95, sd + 0.1);
-      add(sd, 'd', 'Deezer : rang ' + best + ' sur 20' + (recip ? ', lien réciproque' : ''));
+      add(sd, 'd', 'Deezer', ['Rang ' + best + ' sur 20'].concat(recip ? ['Lien réciproque'] : []));
     }
     if ((ev.l || k.indexOf('l') >= 0) && kOn('l')) {
       var rel = ev.l ? ev.l.score / ev.l.top : 0.5;
-      add(0.3 + 0.6 * rel, 'l', 'ListenBrainz : ' + Math.round(rel * 100) + ' % du meilleur voisin'
-        + (ev.l && ev.l.rank ? ' (rang ' + ev.l.rank + ')' : ''));
+      add(0.3 + 0.6 * rel, 'l', 'ListenBrainz', [Math.round(rel * 100) + ' % du meilleur voisin']
+        .concat(ev.l && ev.l.rank ? ['Rang ' + ev.l.rank + ' chez ListenBrainz'] : []));
     }
     if ((ev.c || k.indexOf('c') >= 0) && kOn('c')) {
       var cnt = ev.c ? ev.c.count : 1;
-      add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration : ' + cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun');
+      add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration', [cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun']);
     }
     if ((ev.e || k.indexOf('e') >= 0) && kOn('e')) {
       var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
       var se = 0.15 + 0.25 * e.cos + (e.match ? 0.2 : 0);
       if (e.size >= 40) se *= 0.8;
-      add(se, 'e', 'Label ' + (e.labels.join(', ') || '?') + ' : genres comparables à ' + Math.round(e.cos * 100) + ' %'
-        + (e.match ? ', même style (MusicBrainz)' : ''));
+      add(se, 'e', 'Label : ' + (e.labels.join(', ') || '?'), ['Genres comparables à ' + Math.round(e.cos * 100) + ' %']
+        .concat(e.match ? ['Même style (MusicBrainz)'] : []));
     }
     return { score: 1 - prod, parts: parts };
   }
@@ -1358,6 +1359,23 @@
     return best;
   }
 
+  /* Preuves d'un score, lisibles d'un coup d'oeil : le trait et le nom de la source, puis un fait par ligne. */
+  function partsEl(parts) {
+    var box = document.createElement('div');
+    parts.forEach(function (x) {
+      var p = document.createElement('div'); p.className = 'prt';
+      var h = document.createElement('div'); h.className = 'ph';
+      h.insertAdjacentHTML('afterbegin', sampleSvg(x.src));
+      var nm = document.createElement('span'); nm.textContent = x.name; h.appendChild(nm);
+      p.appendChild(h);
+      x.lines.forEach(function (l) {
+        var d = document.createElement('div'); d.className = 'pd'; d.textContent = l; p.appendChild(d);
+      });
+      box.appendChild(p);
+    });
+    return box;
+  }
+
   /* Infobulle d'un lien : score et origine de chaque preuve, avec le trait de la source. */
   var ltip = document.createElement('div');
   ltip.id = 'ltip'; ltip.hidden = true;
@@ -1376,13 +1394,7 @@
     h.className = 'th';
     h.textContent = lk.source.name + ' et ' + lk.target.name + ' : ' + Math.round(sc.score * 100) + ' %';
     ltip.appendChild(h);
-    sc.parts.forEach(function (x) {
-      var pt = document.createElement('div'); pt.className = 'pt';
-      pt.insertAdjacentHTML('afterbegin', sampleSvg(x.src));
-      var t = document.createElement('span'); t.textContent = x.text;
-      pt.appendChild(t);
-      ltip.appendChild(pt);
-    });
+    ltip.appendChild(partsEl(sc.parts));
     ltip.hidden = false;
     moveLinkTip(cx, cy);
   }
@@ -1786,13 +1798,7 @@
       var bar = document.createElement('div'); bar.className = 'sbar';
       var fill = document.createElement('i'); fill.style.width = pct + '%'; bar.appendChild(fill);
       var why = document.createElement('div'); why.className = 'why';
-      it.sc.parts.forEach(function (x) {
-        var pt = document.createElement('div'); pt.className = 'pt';
-        pt.insertAdjacentHTML('afterbegin', sampleSvg(x.src));
-        var t = document.createElement('span'); t.textContent = x.text;
-        pt.appendChild(t);
-        why.appendChild(pt);
-      });
+      why.appendChild(partsEl(it.sc.parts));
       li.append(r1, bar, why);
       li.addEventListener('click', function () { select(it.other); });
       li.addEventListener('mouseenter', function () { hovered = it.other; draw(); });
