@@ -93,6 +93,8 @@
   .searchrow { display: flex; align-items: flex-end; gap: 12px; }
   #q { flex: 1; min-width: 0; }
   #surprise { flex: none; white-space: nowrap; padding: 6px 10px; font-size: 11px; margin-bottom: 1px; }
+  #surprise .ic { display: none; width: 20px; height: 20px; }
+  .only-narrow { display: none !important; }
   #status button.link { font-size: inherit; }
   #q::placeholder { color: var(--muted); }
   #q:focus { border-bottom-color: var(--accent); }
@@ -211,7 +213,37 @@
   }
 
   @media (max-width: 640px) {
-    #panel { width: 190px; top: 108px; }
+    #topbar { top: 14px; left: 14px; right: 14px; width: auto; padding-right: 54px;
+      display: flex; align-items: flex-end; gap: 10px; }
+    .brand { margin-bottom: 8px; }
+    .brand span { display: none; }
+    .searchrow { flex: 1; min-width: 0; }
+    #q { font-size: 17px; }
+    #results { position: absolute; top: calc(100% + 4px); left: 0; right: 54px; z-index: 6; }
+    #surprise { padding: 8px; margin-bottom: 0; }
+    #surprise .ic { display: block; }
+    #surprise .lbl { display: none; }
+
+    #panel { top: 14px; right: 14px; width: auto; padding: 0; border: 0; background: transparent; z-index: 8; }
+    #panel summary { width: 40px; height: 40px; border: 1px solid var(--ink); background: var(--bg);
+      display: flex; align-items: center; justify-content: center; font-size: 0; letter-spacing: 0;
+      color: var(--ink); }
+    #panel summary::before { content: "\22EF"; width: auto; font-size: 20px; line-height: 1; }
+    #panel[open] summary::before { content: "\00D7"; font-size: 26px; }
+    #panel .pbody { position: absolute; top: 46px; right: 0; width: min(270px, calc(100vw - 28px));
+      background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; }
+    .only-narrow { display: flex !important; }
+    #theme { display: none; }
+
+    #card { left: 12px; right: 12px; bottom: 12px; width: auto; padding: 10px 12px; max-height: 46vh; }
+    #card img { width: 44px; height: 44px; }
+    #card .name { font-size: 16px; }
+    #card .head { gap: 10px; padding-right: 92px; }
+    #card .actions { margin-top: 8px; }
+    #card .actions button { padding: 9px 4px; }
+    #card:not([hidden]) ~ #status[data-kind="count"] { display: none; }
+    #status { left: 14px; bottom: 10px; }
+
     #empty { left: 20px; bottom: 56px; }
   }
 </style>
@@ -238,27 +270,32 @@
     </a>
     <div class="searchrow">
       <input id="q" type="search" placeholder="Chercher un artiste" autocomplete="off" spellcheck="false" aria-label="Chercher un artiste">
-      <button id="surprise" type="button">Surprends-moi</button>
+      <button id="surprise" type="button" aria-label="Surprends-moi" title="Surprends-moi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="15" r="1.5" fill="currentColor"/></svg><span class="lbl">Surprends-moi</span></button>
     </div>
     <ul id="results" class="box"></ul>
   </div>
 
   <details id="panel" class="box" open>
-    <summary>Réglages</summary>
-    <label>Focus <span class="v" id="focusv">Tout</span>
-      <input id="focus" type="range" min="0" max="3" step="1" value="0">
-    </label>
-    <label>Distance des liens <span class="v" id="distv">70</span>
-      <input id="dist" type="range" min="30" max="200" step="5" value="70">
-    </label>
-    <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
-    <div class="row">
-      <button id="undo" type="button" disabled>Annuler</button>
-      <button id="redo" type="button" disabled>Rétablir</button>
-    </div>
-    <div class="row">
-      <button id="fit" type="button">Recentrer</button>
-      <button id="clear" type="button">Tout effacer</button>
+    <summary aria-label="Réglages">Réglages</summary>
+    <div class="pbody">
+      <label>Focus <span class="v" id="focusv">Tout</span>
+        <input id="focus" type="range" min="0" max="3" step="1" value="0">
+      </label>
+      <label>Distance des liens <span class="v" id="distv">70</span>
+        <input id="dist" type="range" min="30" max="200" step="5" value="70">
+      </label>
+      <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
+      <div class="row">
+        <button id="undo" type="button" disabled>Annuler</button>
+        <button id="redo" type="button" disabled>Rétablir</button>
+      </div>
+      <div class="row">
+        <button id="fit" type="button">Recentrer</button>
+        <button id="clear" type="button">Tout effacer</button>
+      </div>
+      <div class="row only-narrow">
+        <button id="theme2" type="button">Mode sombre</button>
+      </div>
     </div>
   </details>
 
@@ -367,7 +404,7 @@
     sim.force('link').links(links);
     recomputeVisible();
     document.getElementById('empty').hidden = nodes.length > 0;
-    setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '');
+    setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
   }
 
   function ensureNode(a, x, y) {
@@ -531,16 +568,55 @@
       }
     }
 
-    var base = clamp((k - 0.45) / 0.5, 0, 1);
+    var base = clamp((k - 0.3) / 0.4, 0, 1);
     ctx.font = (11 / k) + 'px ' + C.mono;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = C.ink;
+    var cand = [];
     for (i = 0; i < nodes.length; i++) {
       n = nodes[i];
       if (!vis(n)) continue;
       var strong = n === f || n === selected || n.root || (f && nb.has(n.id));
-      var la = strong ? 1 : (f ? 0 : base);
-      if (la <= 0.02) continue;
-      ctx.globalAlpha = la;
+      if (!strong && (f || base <= 0.02)) continue;
+      cand.push({ n: n, strong: strong });
+    }
+    cand.sort(function (a, b) {
+      if (a.strong !== b.strong) return a.strong ? -1 : 1;
+      return b.n.deg - a.n.deg;
+    });
+    var nbx = [];
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      if (!vis(n)) continue;
+      var nsx = n.x * k + transform.x, nsy = n.y * k + transform.y, nrr = R(n) * k + 1;
+      nbx.push([nsx - nrr, nsy - nrr, nsx + nrr, nsy + nrr, n]);
+    }
+    var placed = [];
+    for (i = 0; i < cand.length; i++) {
+      n = cand[i].n;
+      if (n._lw === undefined) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = '11px ' + C.mono;
+        n._lw = ctx.measureText(n.name).width;
+        ctx.restore();
+      }
+      var lx = n.x * k + transform.x, ly = n.y * k + transform.y + R(n) * k + 4;
+      var bx0 = lx - n._lw / 2 - 3, bx1 = lx + n._lw / 2 + 3, by0 = ly - 1, by1 = ly + 14;
+      if (!cand[i].strong) {
+        var clash = false;
+        for (var pi = 0; pi < placed.length; pi++) {
+          var rc = placed[pi];
+          if (bx0 < rc[2] && bx1 > rc[0] && by0 < rc[3] && by1 > rc[1]) { clash = true; break; }
+        }
+        for (var ni = 0; ni < nbx.length && !clash; ni++) {
+          var nb2 = nbx[ni];
+          if (nb2[4] === n) continue;
+          if (bx0 < nb2[2] && bx1 > nb2[0] && by0 < nb2[3] && by1 > nb2[1]) clash = true;
+        }
+        if (clash) continue;
+      }
+      placed.push([bx0, by0, bx1, by1]);
+      ctx.globalAlpha = cand[i].strong ? 1 : base;
       ctx.fillText(n.name, n.x, n.y + R(n) + 4 / k);
     }
     ctx.globalAlpha = 1;
@@ -909,7 +985,8 @@
     ex.textContent = n.loading ? 'Chargement' : n.expanded ? 'Exploré' : 'Explorer';
     ex.disabled = n.loading || n.expanded;
     el('alisten').textContent = (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter';
-    el('atop').textContent = n.showTop ? 'Masquer le top' : 'Top 5 titres';
+    var narrow = window.matchMedia('(max-width: 640px)').matches;
+    el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top 5' : 'Top 5 titres');
     renderTracks(n);
     el('chint').textContent = n.tracks === null ? 'Aucun extrait disponible' : '';
     updateNow();
@@ -1116,8 +1193,9 @@
   }
 
   /* ---------- Panneau et divers ---------- */
-  function setStatus(t, label, fn) {
+  function setStatus(t, label, fn, kind) {
     var s = document.getElementById('status');
+    s.dataset.kind = kind || 'msg';
     s.textContent = t;
     s.style.pointerEvents = 'none';
     if (label) {
@@ -1135,7 +1213,7 @@
     var xs = nodes.map(function (n) { return n.x; }), ys = nodes.map(function (n) { return n.y; });
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-    var pad = 90;
+    var pad = W < 640 ? 34 : 90;
     var k = Math.min(2, (W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad) / Math.max(y1 - y0, 1));
     k = Math.max(0.15, k);
     var t = d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
@@ -1233,8 +1311,11 @@
 
   var themeBtn = document.getElementById('theme');
   function themeLabel() {
-    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Mode clair' : 'Mode sombre';
+    var txt = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Mode clair' : 'Mode sombre';
+    themeBtn.textContent = txt;
+    el('theme2').textContent = txt;
   }
+  el('theme2').addEventListener('click', function () { themeBtn.click(); });
   themeBtn.addEventListener('click', function () {
     var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
@@ -1253,6 +1334,10 @@
   themeLabel();
   historyUI();
   if (window.innerWidth < 700) document.getElementById('panel').open = false;
+  document.addEventListener('pointerdown', function (e) {
+    var p = document.getElementById('panel');
+    if (p.open && window.innerWidth < 700 && !p.contains(e.target)) p.open = false;
+  });
 
   resize();
   refresh();
