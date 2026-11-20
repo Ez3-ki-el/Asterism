@@ -212,6 +212,16 @@ body.hasplayer #xprog { bottom: 110px; }
 #card .lk .disc li.more { cursor: default; color: var(--muted); }
 #card .lk .disc li.more button.link { font-size: 11px; color: var(--muted); text-align: left; white-space: normal; max-width: 100%; line-height: 1.45; }
 #card .lk .disc li.more button.link:hover { color: var(--accent); }
+/* Reglages : legende des anneaux de mes ecoutes et filtre qui estompe les autres artistes. */
+#panel .mkf { margin-top: 14px; }
+#panel .mkh { margin-bottom: 6px; }
+#panel .mkleg { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 11px; }
+#panel .mkleg span { display: inline-flex; align-items: center; gap: 5px; }
+#panel .mkleg svg { width: 14px; height: 14px; flex: none; }
+#panel .mkbtns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+#panel .mkbtns button { flex: none; white-space: nowrap; padding: 3px 7px; font-size: 10.5px; border-color: var(--line); color: var(--muted); }
+#panel .mkbtns button:hover { background: transparent; color: var(--ink); border-color: var(--ink); }
+#panel .mkbtns button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 /* Liste « Mes ecoutes » */
 #mylist { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30;
   width: min(520px, calc(100% - 32px)); max-height: calc(100% - 48px); display: flex; flex-direction: column;

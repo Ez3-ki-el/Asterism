@@ -41,7 +41,7 @@
 }
 </script>
 <title>Asterism : carte des artistes similaires (dig musical)</title>
-<link rel="stylesheet" href="style.css?v=20261120d">
+<link rel="stylesheet" href="style.css?v=20261120h">
 <script>
   (function () {
     var t = null;
@@ -88,6 +88,20 @@
       <label>Petits artistes <span class="v" id="fanv">Tout</span>
         <input id="fanmax" type="range" min="0" max="8" step="1" value="0" aria-label="Popularité maximale : estompe les artistes plus écoutés">
       </label>
+      <div class="mkf">
+        <div class="mkh">Mes écoutes</div>
+        <div class="mkleg">
+          <span><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke-width="2" stroke="var(--accent)"/></svg>Aimé</span>
+          <span><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke-width="2" stroke="var(--accent)" stroke-dasharray="2.6 2"/></svg>À écouter</span>
+          <span><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke-width="2" stroke="var(--ink)" stroke-dasharray="1 2.2"/></svg>Écouté</span>
+        </div>
+        <div class="mkbtns" role="group" aria-label="Mettre en avant mes écoutes">
+          <button type="button" data-mf="all">Tout</button>
+          <button type="button" data-mf="liked">Aimés</button>
+          <button type="button" data-mf="later">À écouter</button>
+          <button type="button" data-mf="heard">Écoutés</button>
+        </div>
+      </div>
       </details>
       <details class="grp" name="pg">
         <summary>Écoute</summary>
@@ -165,6 +179,10 @@
     </div>
     <ol id="ctracks" hidden></ol>
     <div class="hint" id="chint"></div>
+    <details id="cdisc" class="lk">
+      <summary id="cdiscsum">Discographie</summary>
+      <ol id="cdiscl" class="disc"></ol>
+    </details>
     <details id="cext" class="lk" hidden>
       <summary id="cextsum"></summary>
       <div id="cextl" class="exl"></div>
@@ -172,10 +190,6 @@
     <details id="cwd" class="lk" hidden>
       <summary id="cwdsum"></summary>
       <div id="cwdl" class="exl"></div>
-    </details>
-    <details id="cdisc" class="lk">
-      <summary id="cdiscsum">Discographie</summary>
-      <ol id="cdiscl" class="disc"></ol>
     </details>
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
@@ -237,13 +251,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="js/core.js?v=20261120d"></script>
-<script src="js/sources.js?v=20261120d"></script>
-<script src="js/render.js?v=20261120d"></script>
-<script src="js/actions.js?v=20261120d"></script>
-<script src="js/card.js?v=20261120d"></script>
-<script src="js/ui.js?v=20261120d"></script>
-<script src="js/i18n.js?v=20261120d"></script>
-<script src="js/boot.js?v=20261120d"></script>
+<script src="js/core.js?v=20261120h"></script>
+<script src="js/sources.js?v=20261120h"></script>
+<script src="js/render.js?v=20261120h"></script>
+<script src="js/actions.js?v=20261120h"></script>
+<script src="js/card.js?v=20261120h"></script>
+<script src="js/ui.js?v=20261120h"></script>
+<script src="js/i18n.js?v=20261120h"></script>
+<script src="js/boot.js?v=20261120h"></script>
 </body>
 </html>

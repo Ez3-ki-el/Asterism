@@ -59,10 +59,11 @@ function draw() {
     ctx.globalAlpha = 1;
   }
   function plain(lk) { return ekOf(lk) === 'd'; }
-  function toBig(lk) { return fanMax > 0 && (bigNode(lk.source) || bigNode(lk.target)); }
+  var anyDim = fanMax > 0 || (typeof markFilter !== 'undefined' && markFilter !== 'all');
+  function toBig(lk) { return anyDim && (dimNode(lk.source) || dimNode(lk.target)); }
   pass(function (lk) { return plain(lk) && !isDim(lk) && !toBig(lk); }, f ? 0.35 : 1);
   if (dimRoot) pass(function (lk) { return plain(lk) && isDim(lk) && !toBig(lk); }, f ? 0.12 : 0.33);
-  if (fanMax > 0) pass(function (lk) { return plain(lk) && toBig(lk); }, f ? 0.05 : 0.08);
+  if (anyDim) pass(function (lk) { return plain(lk) && toBig(lk); }, f ? 0.05 : 0.08);
 
   /* Liens des sources etendues : pointille fin = collaboration, tirets = ListenBrainz,
      trait plein epais = confirme par plusieurs sources ; l'epaisseur suit le poids. */
@@ -106,7 +107,7 @@ function draw() {
     if (!isShown(n)) continue;
     var v = vis(n), a = v ? 1 : 0.07;
     if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
-    if (bigNode(n)) a = Math.min(a, 0.12);
+    if (dimNode(n)) a = Math.min(a, 0.12);
     a *= fadeOf(n);
     ctx.globalAlpha = a;
     var r = R(n), hot = (n === f || n.root);
@@ -144,13 +145,15 @@ function draw() {
     }
     var mk = marks[n.id];
     if (mk) {
-      /* Mes ecoutes : point plein orange = aime, anneau orange = a ecouter, point plein encre = ecoute. */
-      var mx2 = n.x - r * 0.72, my2 = n.y + r * 0.72, mr = 4.5 / k;
-      ctx.beginPath(); ctx.arc(mx2, my2, mr + 1.5 / k, 0, 6.2832);
-      ctx.fillStyle = C.bg; ctx.fill();
-      ctx.beginPath(); ctx.arc(mx2, my2, mr, 0, 6.2832);
-      if (mk.s === 'later') { ctx.strokeStyle = C.accent; ctx.lineWidth = 1.4 / k; ctx.stroke(); }
-      else { ctx.fillStyle = mk.s === 'liked' ? C.accent : C.ink; ctx.fill(); }
+      /* Mes ecoutes : anneau autour de la photo. Plein orange = aime, tirets orange = a ecouter, pointille fin couleur du texte = ecoute. */
+      ctx.save();
+      ctx.beginPath(); ctx.arc(n.x, n.y, r + 2 / k, 0, 6.2832);
+      ctx.lineWidth = 2.6 / k;
+      ctx.strokeStyle = mk.s === 'heard' ? C.ink : C.accent;
+      if (mk.s === 'later') ctx.setLineDash([4 / k, 3 / k]);
+      if (mk.s === 'heard') { ctx.lineWidth = 2.2 / k; ctx.setLineDash([1.2 / k, 2.8 / k]); }
+      ctx.stroke();
+      ctx.restore();
     }
     if (n.pinned) {
       ctx.fillStyle = C.accent;
@@ -215,7 +218,7 @@ function draw() {
     n = nodes[i];
     if (!vis(n)) continue;
     var strong = n === f || n === selected || n.root || (f && nb.has(n.id));
-    if (!strong && (f || base <= 0.02 || bigNode(n))) continue;
+    if (!strong && (f || base <= 0.02 || dimNode(n))) continue;
     cand.push({ n: n, strong: strong });
   }
   cand.sort(function (a, b) {

@@ -144,6 +144,12 @@ var FAN_STEPS = [0, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500], fanIdx 
 try { fanIdx = Math.max(0, Math.min(FAN_STEPS.length - 1, parseInt(localStorage.getItem('mg-fan'), 10) || 0)); } catch (e) { dbg('ignore', e); }
 fanMax = FAN_STEPS[fanIdx];
 function bigNode(n) { return fanMax > 0 && !n.root && n !== selected && typeof n.fans === 'number' && n.fans > fanMax; }
+/* Un artiste est estompe s'il depasse le seuil de popularite, ou s'il ne correspond pas au filtre « mes ecoutes »
+   (markFilter et marks sont definis dans card.js ; ces fonctions ne servent qu'apres le chargement). */
+function markOut(n) {
+  return typeof markFilter !== 'undefined' && markFilter !== 'all' && !n.root && n !== selected && !(marks[n.id] && marks[n.id].s === markFilter);
+}
+function dimNode(n) { return bigNode(n) || markOut(n); }
 /* Lettres de types d'un lien qui sont actuellement cochees ('' = lien masque). */
 function ekRaw(lk) {
   if (lk._kv !== kindsVer || lk._kk !== lk.k) {

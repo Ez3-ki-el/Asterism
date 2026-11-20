@@ -64,6 +64,11 @@ function renderCard() {
   renderTour();
   card.hidden = !n;
   if (!n) { updateNow(); return; }
+  /* Le top des titres est ouvert par defaut a la premiere ouverture de la fiche ; « Masquer » le referme pour cet artiste. */
+  if (n.showTop === undefined) {
+    n.showTop = true;
+    if (n.tracks === undefined) loadTracks(n).then(function () { if (selected === n) renderCard(); });
+  }
   card.classList.toggle('min', cardMin);
   el('cmin').textContent = cardMin ? '+' : '−';
   el('cname').textContent = n.name;
@@ -583,6 +588,25 @@ function setMark(n, s) {
   saveMarks(); renderCard(); draw(); renderMyList();
 }
 var MARK_LABELS = { later: 'À écouter', liked: 'Aimé', heard: 'Écouté' };
+/* Filtre « mes ecoutes » des reglages : tout, ou seulement les aimes, a ecouter ou ecoutes (les autres sont estompes). */
+var markFilter = 'all';
+try { var savedMf = localStorage.getItem('mg-markf'); if (/^(all|liked|later|heard)$/.test(savedMf || '')) markFilter = savedMf; } catch (e) { dbg('ignore', e); }
+function renderMarkFilter() {
+  document.querySelectorAll('#panel .mkbtns button').forEach(function (b) {
+    b.setAttribute('aria-pressed', b.getAttribute('data-mf') === markFilter ? 'true' : 'false');
+  });
+}
+document.querySelectorAll('#panel .mkbtns button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    markFilter = b.getAttribute('data-mf');
+    try { localStorage.setItem('mg-markf', markFilter); } catch (e) { dbg('ignore', e); }
+    renderMarkFilter(); draw();
+    if (markFilter !== 'all' && !nodes.some(function (n) { return marks[n.id] && marks[n.id].s === markFilter; })) {
+      toast(T('Aucun artiste de cette catégorie sur la carte'));
+    }
+  });
+});
+renderMarkFilter();
 function renderMarks(n) {
   var m = marks[n.id];
   document.querySelectorAll('#cmarks button[data-mark]').forEach(function (b) {

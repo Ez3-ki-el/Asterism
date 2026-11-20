@@ -11,11 +11,11 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 ## Fonctions
 
 - **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
-- **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
+- **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres ouvert par défaut (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
 - **Lecteur** : un encart séparé, en bas à droite (sous la recherche sur téléphone), visible pendant toute la lecture. Photo cliquable pour rouvrir la fiche, lecture et pause, temps, barre de progression. La musique continue quand on ferme la fiche ou qu'on regarde un autre artiste (seule l'écoute au survol s'arrête).
 - **Écouter ses voisins** : depuis la fiche ou le menu, l'artiste puis ses voisins, du plus compatible au moins compatible, un extrait chacun, pilotée depuis l'encart du lecteur (précédent, suivant, arrêter, position 3/21). Choisir un artiste à la main arrête l'écoute.
 - **Discographie** : albums, EP et singles Deezer avec pochette et année, un clic joue le premier extrait de l'album. Deezer mélange parfois des homonymes sous un même artiste et ajoute ses featurings : les sorties d'un genre éloigné du genre dominant, quand elles forment un vrai groupe, sont repliées sous « + N sorties d'un autre genre ».
-- **Mes écoutes** : marquer un artiste « À écouter », « Aimé » ou « Écouté ». Un repère apparaît sur son nœud (point orange, anneau orange, point plein), La liste « Mes écoutes » (réglages, groupe Carte) les regroupe : filtre par état, changement d'état, retrait, ouverture de l'artiste sur la carte, export en fichier texte avec les liens Deezer. Tout reste dans le navigateur.
+- **Mes écoutes** : marquer un artiste « À écouter », « Aimé » ou « Écouté ». Un anneau entoure sa photo sur la carte (plein orange pour Aimé, tirets orange pour À écouter, pointillé fin pour Écouté), avec une légende et un filtre « Tout, Aimés, À écouter, Écoutés » dans les réglages (groupe Affichage) qui estompe les autres artistes, La liste « Mes écoutes » (réglages, groupe Carte) les regroupe : filtre par état, changement d'état, retrait, ouverture de l'artiste sur la carte, export en fichier texte avec les liens Deezer. Tout reste dans le navigateur.
 - **Repli Apple** : quand Deezer n'a aucun extrait, ceux d'Apple (iTunes) prennent le relais, avec un appariement strict sur le nom.
 - **Ouvrir ailleurs** : logos Deezer, Spotify, Apple Music, YouTube Music, Bandcamp et SoundCloud. Lien exact quand Wikidata connaît l'artiste (souligné en orange), sinon recherche sur le nom.
 - **Identité et liens (Wikidata)** : genres, pays, dates, site officiel, Instagram, Discogs, Wikipédia, pour les artistes qui ont une fiche Wikidata.
@@ -100,7 +100,7 @@ Limites : un `robots.txt` placé dans ce dépôt serait ignoré (les robots ne l
 - **Apple (iTunes Search)** : sans clé. Si `fetch` est refusé par le navigateur ou le réseau, un second essai passe par une balise script (JSONP, sans le paramètre `output=jsonp` que l'API refuse).
 - **MusicBrainz** : une requête toutes les 1,3 seconde au plus, réessais en cas de 503. **ListenBrainz**, **Wikidata** : sans clé, CORS ouvert.
 - **Liens de partage** : toutes les valeurs sont vérifiées avant usage (identifiants entiers, empreintes d'image, types de liens, preuves), car un lien peut venir de n'importe qui.
-- **Stockage local** : réglages (`mg-theme`, `mg-lang`, `mg-hover`, `mg-ext`, `mg-kinds`, `mg-min`, `mg-top`, `mg-fan`, `mg-hint`), mes écoutes (`mg-marks`) et cache `mg-cache` (fiche Wikidata 7 jours, identifiant MusicBrainz 30 jours, 600 entrées au plus).
+- **Stockage local** : réglages (`mg-theme`, `mg-lang`, `mg-hover`, `mg-ext`, `mg-kinds`, `mg-min`, `mg-top`, `mg-fan`, `mg-hint`, `mg-markf`), mes écoutes (`mg-marks`) et cache `mg-cache` (fiche Wikidata 7 jours, identifiant MusicBrainz 30 jours, 600 entrées au plus).
 - **d3** : chargé depuis jsDelivr en version figée (`d3@7.9.0`).
 - **Logos** : icônes monochromes Simple Icons (CC0), intégrées dans `js/card.js`. Les marques appartiennent à leurs propriétaires.
 - **Typographie** : piles de polices système. Aucune police externe n'est chargée.
