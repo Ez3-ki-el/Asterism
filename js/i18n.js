@@ -124,7 +124,7 @@ EN = {
   'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.': 'Double-click an artist to see its neighbours. "?" opens help.',
   'Recherche étendue : {name}': 'Extended search: {name}', 'en cours': 'running', 'terminé': 'done', '+ {n} autres': '+ {n} more',
   'Les nouveaux artistes apparaîtront tous ensemble à la fin.': 'New artists will all appear together at the end.',
-  'En écoute': 'Now playing', 'En pause': 'Paused',
+  'En écoute': 'Now playing', 'En pause': 'Paused', 'Lecteur': 'Player', 'Ouvrir la fiche': 'Open the card',
   'Mes écoutes': 'My listening', 'Aucun artiste dans cette catégorie.': 'No artist in this category.',
   'Aucun artiste marqué. Dans la fiche d’un artiste, choisis « À écouter », « Aimé » ou « Écouté ».': 'No artist marked yet. On an artist card, choose "To listen", "Liked" or "Listened".',
   'Ouvrir {name} sur la carte': 'Open {name} on the map', 'Retirer de la liste': 'Remove from the list',
@@ -147,7 +147,7 @@ EN = {
 
 /* Traduit le texte et les attributs du HTML statique ; l'original francais est memorise sur chaque noeud pour revenir en arriere.
    Les zones reconstruites par le code (fiche, statut, menu, infobulle, resultats, valeurs des curseurs) sont traitees a part. */
-var I18N_SKIP = '#card, #status, #ltip, #menu, #results, .v, #theme, #theme2, #lang, #lang2, script, style, noscript, svg';
+var I18N_SKIP = '#card, #player, #status, #ltip, #menu, #results, .v, #theme, #theme2, #lang, #lang2, script, style, noscript, svg';
 function trKey(t) { return t.replace(/\s+/g, ' ').trim(); }
 function trDom(root) {
   var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [], nd;

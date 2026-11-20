@@ -356,16 +356,26 @@ function renderTracks(n) {
   });
 }
 
+/* Encart du lecteur : affiche ce qui joue, quel que soit l'artiste selectionne. L'ecoute au survol n'y apparait pas. */
 function updateNow() {
-  var box = el('cnow'), n = selected;
-  if (!n || !playing || playing.id !== n.id) { box.hidden = true; el('cbar').style.width = '0'; return; }
+  var box = el('player'), n = playing ? byId.get(playing.id) : null;
+  if (!playing || !n || playing.hover) {
+    box.hidden = true; document.body.classList.remove('hasplayer'); el('cbar').style.width = '0';
+    return;
+  }
   var t = playing.title || (n.tracks && n.tracks[playing.idx] ? n.tracks[playing.idx].title : '');
-  if (!t) { box.hidden = true; return; }
-  box.hidden = false;
-  el('cnowt').textContent = t;
+  box.hidden = false; document.body.classList.add('hasplayer');
+  box.setAttribute('aria-label', T('Lecteur'));
+  var img = el('plimg');
+  if (n.pic && img.getAttribute('src') !== n.pic) img.src = n.pic;
+  img.title = T('Ouvrir la fiche');
+  el('plname').textContent = n.name;
+  el('cnowt').textContent = t ? '· ' + t : '';
   box.classList.toggle('paused', !!playing.paused);
-  el('cnowk').textContent = playing.paused ? T('En pause') : playing.kind === 'tour' ? T('Écoute de la carte') : T('En écoute');
+  el('cnowk').textContent = playing.paused ? T('En pause')
+    : tour ? T('Écoute de la carte') + ' · ' + (tour.i + 1) + '/' + tour.list.length : T('En écoute');
   el('cnowpp').setAttribute('aria-label', playing.paused ? T('Reprendre') : T('Pause'));
+  renderTour();
   updateNowTime();
 }
 function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -408,14 +418,12 @@ function startTour(origin) {
   var list = neighboursByScore(origin);
   if (!list.length) { toast(T('Aucun voisin à écouter')); return; }
   tour = { name: origin.name, list: [origin].concat(list), i: -1 };
-  document.body.classList.add('touring');
   tourGo(1);
 }
 function stopTour(msg) {
   if (!tour) return;
   tour = null;
-  document.body.classList.remove('touring');
-  renderTour();
+  updateNow();
   if (msg) toast(msg);
 }
 async function tourGo(step) {
@@ -440,23 +448,31 @@ async function tourGo(step) {
   }
   stopTour(T('Écoute de la carte terminée'));
 }
+/* Boutons de l'encart du lecteur : precedent et suivant pendant l'ecoute de la carte, arreter toujours. */
+var PL_ICON = {
+  prev: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="2" height="10" fill="currentColor"/><path d="M13 3v10L6 8z" fill="currentColor"/></svg>',
+  next: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3v10l7-5z" fill="currentColor"/><rect x="11" y="3" width="2" height="10" fill="currentColor"/></svg>',
+  stop: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" fill="currentColor"/></svg>'
+};
 function renderTour() {
-  var bar = el('tourbar');
-  if (!tour) { bar.hidden = true; return; }
-  bar.hidden = false;
-  bar.textContent = '';
-  var cur = tour.list[Math.max(0, tour.i)];
-  var t = document.createElement('div'); t.className = 'tt';
-  t.textContent = T('Écoute de la carte : {name}', { name: cur.name }) + ' ';
-  var pos = document.createElement('span'); pos.textContent = '(' + (tour.i + 1) + '/' + tour.list.length + ')';
-  t.appendChild(pos);
-  function btn(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); bar.appendChild(b); }
-  bar.appendChild(t);
-  btn(T('Précédent'), function () { tourGo(-1); });
-  btn(playing && playing.paused ? T('Reprendre') : T('Pause'), function () { if (playing) togglePause(); });
-  btn(T('Suivant'), function () { tourGo(1); });
-  btn(T('Arrêter'), function () { stopAudio(); stopTour(); });
+  var x = el('plx');
+  x.textContent = '';
+  function btn(icon, label, fn) {
+    var b = document.createElement('button'); b.type = 'button';
+    b.insertAdjacentHTML('afterbegin', PL_ICON[icon]);
+    b.title = label; b.setAttribute('aria-label', label);
+    b.addEventListener('click', fn); x.appendChild(b);
+  }
+  if (tour) {
+    btn('prev', T('Précédent'), function () { tourGo(-1); });
+    btn('next', T('Suivant'), function () { tourGo(1); });
+  }
+  btn('stop', T('Arrêter'), function () { stopAudio(); stopTour(); });
 }
+el('plimg').addEventListener('click', function () {
+  var n = playing && byId.get(playing.id);
+  if (n) { select(n); if (typeof ensureOnScreen === 'function') ensureOnScreen(n); }
+});
 
 /* ---------- Discographie : albums Deezer avec pochette, un clic joue le premier extrait de l'album ---------- */
 function loadAlbums(n) {
@@ -860,7 +876,7 @@ el('minscore').addEventListener('input', function (e) {
 });
 
 var seeking = false;
-var bar = document.querySelector('#card .bar');
+var bar = document.querySelector('#player .bar');
 function seekTo(e) {
   if (!playing || !audio.duration) return;
   var r = bar.getBoundingClientRect();

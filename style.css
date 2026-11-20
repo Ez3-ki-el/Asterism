@@ -134,25 +134,35 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #card .meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
 #card .actions { display: flex; gap: 6px; margin-top: 12px; }
 #card .actions button { padding: 6px 4px; font-size: 11px; min-width: 0; }
-/* Lecteur : un bloc encadre d'orange, teinte, avec son propre bouton lecture et pause, le titre et le temps. */
-#card .now { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 9px 10px 6px;
-  border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--bg)); }
-#card .now[hidden] { display: none; }
-#card .now .pp { width: 34px; height: 34px; flex: none; padding: 0; display: flex; align-items: center; justify-content: center;
+/* Lecteur : encart separe, visible pendant toute la lecture, meme fiche fermee ou defilee. */
+#player { position: absolute; right: 96px; bottom: 16px; z-index: 21; width: min(440px, calc(100% - 446px)); min-width: 300px;
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg)); }
+#player[hidden] { display: none; }
+#player #plimg { width: 42px; height: 42px; flex: none; object-fit: cover; background: var(--line); cursor: pointer; }
+#player .pp { width: 36px; height: 36px; flex: none; padding: 0; display: flex; align-items: center; justify-content: center;
   background: var(--accent); border-color: var(--accent); color: var(--bg); }
-#card .now .pp:hover { background: var(--ink); border-color: var(--ink); color: var(--bg); }
-#card .now .pp svg { width: 14px; height: 14px; }
-#card .now .pp .i-play, #card .now.paused .pp .i-pause { display: none; }
-#card .now.paused .pp .i-play { display: block; }
-#card .now .nowm { flex: 1; min-width: 0; }
-#card .now .nowl { display: flex; justify-content: space-between; gap: 8px; font-size: 9.5px; letter-spacing: 0.12em;
+#player .pp:hover { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+#player .pp svg { width: 14px; height: 14px; }
+#player .pp .i-play, #player.paused .pp .i-pause { display: none; }
+#player.paused .pp .i-play { display: block; }
+#player .nowm { flex: 1; min-width: 0; }
+#player .nowl { display: flex; justify-content: space-between; gap: 8px; font-size: 9.5px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--accent); }
-#card .now #cnowtime { color: var(--muted); letter-spacing: 0; font-variant-numeric: tabular-nums; }
-#card .now .nowt { margin-top: 2px; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#card .bar { position: relative; height: 14px; margin-top: 3px; cursor: pointer; touch-action: none; }
-#card .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 4px; background: var(--line); }
-#card .bar i { position: absolute; left: 0; top: 5px; height: 4px; width: 0; background: var(--accent); max-width: 100%; }
-#card .bar i::after { content: ""; position: absolute; right: -5px; top: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+#player #cnowtime { color: var(--muted); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+#player #cnowk { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#player #cnowtime { flex: none; white-space: nowrap; }
+#player .nowt { margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+#player .nowt b { font-weight: normal; color: var(--ink); }
+#player .bar { position: relative; height: 14px; margin-top: 2px; cursor: pointer; touch-action: none; }
+#player .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 4px; background: var(--line); }
+#player .bar i { position: absolute; left: 0; top: 5px; height: 4px; width: 0; background: var(--accent); max-width: 100%; }
+#player .bar i::after { content: ""; position: absolute; right: -5px; top: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+#player .plx { display: flex; gap: 4px; flex: none; }
+#player .plx button { width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; border-color: var(--line); }
+#player .plx button:hover { border-color: var(--ink); }
+#player .plx svg { width: 12px; height: 12px; }
+body.hasplayer #xprog { bottom: 110px; }
 #card ol { list-style: none; margin: 10px 0 0; padding: 0; }
 #card li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line);
   cursor: pointer; font-size: 11px; }
@@ -202,7 +212,6 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #card .lk .disc li.more { cursor: default; color: var(--muted); }
 #card .lk .disc li.more button.link { font-size: 11px; color: var(--muted); text-align: left; white-space: normal; max-width: 100%; line-height: 1.45; }
 #card .lk .disc li.more button.link:hover { color: var(--accent); }
-/* Barre de l'ecoute de la carte */
 /* Liste « Mes ecoutes » */
 #mylist { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30;
   width: min(520px, calc(100% - 32px)); max-height: calc(100% - 48px); display: flex; flex-direction: column;
@@ -227,13 +236,6 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #mylist .mle { color: var(--muted); padding: 10px 0; line-height: 1.5; }
 #mylist .mlx { margin-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; }
 @media (max-width: 640px) { #mylist li { flex-wrap: wrap; } #mylist li .st { margin-left: 42px; } }
-#tourbar { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 21; width: min(420px, calc(100% - 32px));
-  padding: 10px 12px; border-color: var(--accent); font-size: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-#tourbar[hidden] { display: none; }
-#tourbar .tt { flex: 1 1 100%; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#tourbar .tt span { color: var(--muted); }
-#tourbar button { padding: 4px 9px; font-size: 11px; }
-body.touring #xprog { bottom: 110px; }
 #panel .ticks { display: flex; justify-content: space-between; margin: 1px 4px 0; color: var(--muted); font-size: 9.5px; }
 #panel .ticks span { width: 1px; display: flex; flex-direction: column; align-items: center; white-space: nowrap; overflow: visible; }
 #panel .ticks span::before { content: ""; width: 1px; height: 5px; background: var(--muted); margin-bottom: 1px; }
@@ -395,8 +397,11 @@ body.touring #xprog { bottom: 110px; }
   #tools { top: 66px; bottom: auto; right: 14px; }
   #toast { bottom: auto; top: 68px; }
   #xprog { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; transform: none; }
-  #tourbar { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; transform: none; }
-  body.touring #xprog { top: 150px; bottom: auto; }
+  #player { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; min-width: 0; padding: 8px; gap: 6px 10px; flex-wrap: wrap; }
+  #player #plimg { display: none; }
+  #player .nowm { flex: 1 1 calc(100% - 50px); }
+  #player .plx { flex: 1 1 100%; justify-content: flex-end; }
+  body.hasplayer #xprog { top: 172px; bottom: auto; }
 
   #empty { left: 20px; bottom: 56px; }
 }

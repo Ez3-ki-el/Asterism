@@ -19,7 +19,9 @@ function recomputeVisible() {
 
 function select(n) {
   if (tour && !tourSelecting) stopTour();
-  if (playing && (!n || playing.id !== n.id)) stopAudio();
+  /* Le lecteur a son propre encart : la musique continue quand on ferme la fiche ou qu'on regarde un autre artiste.
+     Seule l'ecoute au survol s'arrete en changeant d'artiste. */
+  if (playing && playing.hover && (!n || playing.id !== n.id)) stopAudio();
   if (playing && n && playing.id === n.id) playing.hover = false;
   selected = n;
   recomputeVisible();

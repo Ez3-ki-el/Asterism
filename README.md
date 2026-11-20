@@ -12,7 +12,8 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 
 - **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
 - **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
-- **Écouter ses voisins** : depuis la fiche ou le menu, l'artiste puis ses voisins, du plus compatible au moins compatible, un extrait chacun, avec une barre Précédent, Pause, Suivant, Arrêter. Choisir un artiste à la main arrête l'écoute.
+- **Lecteur** : un encart séparé, en bas à droite (sous la recherche sur téléphone), visible pendant toute la lecture. Photo cliquable pour rouvrir la fiche, lecture et pause, temps, barre de progression. La musique continue quand on ferme la fiche ou qu'on regarde un autre artiste (seule l'écoute au survol s'arrête).
+- **Écouter ses voisins** : depuis la fiche ou le menu, l'artiste puis ses voisins, du plus compatible au moins compatible, un extrait chacun, pilotée depuis l'encart du lecteur (précédent, suivant, arrêter, position 3/21). Choisir un artiste à la main arrête l'écoute.
 - **Discographie** : albums, EP et singles Deezer avec pochette et année, un clic joue le premier extrait de l'album. Deezer mélange parfois des homonymes sous un même artiste et ajoute ses featurings : les sorties d'un genre éloigné du genre dominant, quand elles forment un vrai groupe, sont repliées sous « + N sorties d'un autre genre ».
 - **Mes écoutes** : marquer un artiste « À écouter », « Aimé » ou « Écouté ». Un repère apparaît sur son nœud (point orange, anneau orange, point plein), La liste « Mes écoutes » (réglages, groupe Carte) les regroupe : filtre par état, changement d'état, retrait, ouverture de l'artiste sur la carte, export en fichier texte avec les liens Deezer. Tout reste dans le navigateur.
 - **Repli Apple** : quand Deezer n'a aucun extrait, ceux d'Apple (iTunes) prennent le relais, avec un appariement strict sur le nom.
@@ -60,6 +61,8 @@ L'adresse de la page mémorise l'artiste de départ : `.../#Radiohead` ouvre dir
 | `logo.svg` | Le logo seul, qui s'adapte au mode clair ou sombre. |
 | `sitemap.xml` | Plan du site, à déclarer dans la Search Console. |
 | `.nojekyll` | Désactive le traitement Jekyll de GitHub Pages, inutile ici. |
+
+**Numéro de version** : `index.html` charge `style.css` et les scripts avec `?v=AAAAMMJJx`. GitHub Pages autorise 10 minutes de cache : sans changer ce numéro à chaque publication, un visiteur peut recevoir le nouveau `index.html` avec d'anciens scripts. Changer les neuf occurrences d'un coup (même valeur partout).
 
 Les scripts sont des scripts classiques, pas des modules : ils partagent la portée globale et sont chargés dans l'ordre ci-dessus. C'est ce qui permet d'ouvrir `index.html` depuis le disque (les modules y sont bloqués par le navigateur). Conséquence : un fichier ne doit pas appeler, au chargement, une fonction définie dans un fichier suivant. Les appels faits plus tard (clics, minuteries) ne posent pas de problème.
 
