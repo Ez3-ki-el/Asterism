@@ -573,6 +573,33 @@
   var GENERIC_LABELS = /^(\d+\s*records|believe|tunecore|distrokid|cd\s?baby|amuse|ditto|symphonic|the orchard|ingrooves|7digital|self[- ]released|independent|unknown|none|n\/a)\b/i;
   var VARIOUS = ['various artists', 'artistes divers', 'multi interpretes', 'compilation', 'va'];
 
+  /* Profil de genres des albums d'un artiste (genre_id Deezer -> nombre d'albums). */
+  var genreCache = new Map();
+  async function genreProfile(id) {
+    if (genreCache.has(id)) return genreCache.get(id);
+    var d = (await dz('/artist/' + id + '/albums?limit=50')).data || [];
+    var m = new Map();
+    d.forEach(function (a) { if (a.genre_id > 0) m.set(a.genre_id, (m.get(a.genre_id) || 0) + 1); });
+    genreCache.set(id, m);
+    return m;
+  }
+  /* Un artiste sans photo chez Deezer (adresse d'image vide, ou empreinte MD5 d'un fichier vide)
+     est en general un profil cree par un distributeur : trop peu fiable pour un lien de label. */
+  function hasPicture(ar) {
+    var p = ar.picture_medium || ar.picture || '';
+    return !!p && p.indexOf('/artist//') < 0 && p.indexOf('d41d8cd98f00b204e9800998ecf8427e') < 0;
+  }
+  function cosine(a, b) {
+    var dot = 0, na = 0, nb = 0;
+    a.forEach(function (v, k) { na += v * v; if (b.has(k)) dot += v * b.get(k); });
+    b.forEach(function (v) { nb += v * v; });
+    return na && nb ? dot / Math.sqrt(na * nb) : 0;
+  }
+
+  /* Un label reunit des artistes de tous les genres : on ne garde que les candidats dont les genres
+     d'albums ressemblent a ceux de l'artiste (similarite cosinus >= 0,75), et le poids du lien suit
+     cette ressemblance. Les autres sont comptes dans n.ext.rej. */
+  var LABEL_MIN_COS = 0.75;
   async function enrichLabel(n, g) {
     var albs = (await dz('/artist/' + n.id + '/albums?limit=6')).data || [];
     if (!alive(n, g)) return [];
@@ -584,7 +611,10 @@
       if (lab && !GENERIC_LABELS.test(lab)) labels.set(lab, (labels.get(lab) || 0) + 1);
     }
     var ranked = Array.from(labels.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 2);
-    var used = [];
+    if (!ranked.length) return [];
+    var srcProf = await genreProfile(n.id);
+    if (!alive(n, g)) return [];
+    var used = [], rejected = 0;
     for (var j = 0; j < ranked.length; j++) {
       var name = ranked[j][0];
       var found = (await dz('/search/album?q=' + encodeURIComponent('label:"' + name + '"') + '&limit=50')).data || [];
@@ -599,20 +629,30 @@
       });
       var size = roster.size;
       if (!size) continue;
-      var w = Math.max(0.1, Math.min(0.6, 1 / (1 + size / 10)));
-      var cap = (size >= 40 || found.length >= 50) ? 3 : 5, added = 0;
-      Array.from(roster.values()).sort(function (a, b) { return b.c - a.c; }).forEach(function (ent) {
+      var base = Math.max(0.1, Math.min(0.6, 1 / (1 + size / 10)));
+      var cap = (size >= 40 || found.length >= 50) ? 3 : 4, added = 0, kept = 0;
+      var cands = Array.from(roster.values()).sort(function (a, b) { return b.c - a.c; }).slice(0, 12);
+      for (var k = 0; k < cands.length; k++) {
+        var ent = cands[k];
+        if (!hasPicture(ent.a)) { rejected++; continue; }
+        var prof = await genreProfile(ent.a.id);
+        if (!alive(n, g)) return used;
+        var cos = srcProf.size ? cosine(srcProf, prof) : 1;
+        if (cos < LABEL_MIN_COS) { rejected++; continue; }
         var m = byId.get(ent.a.id);
         if (!m) {
-          if (added >= cap) return;
+          if (added >= cap) continue;
           m = ensureNode({ id: ent.a.id, name: ent.a.name, picture_medium: ent.a.picture_medium || ent.a.picture, nb_fan: ent.a.nb_fan }, n.x, n.y);
           added++;
         }
-        addLink(n, m, 'e', w);
-      });
-      used.push(name);
+        addLink(n, m, 'e', base * cos);
+        kept++;
+        syncSim();
+      }
+      if (kept) used.push(name);
       syncSim();
     }
+    if (n.ext) n.ext.rej = rejected;
     return used;
   }
 
@@ -638,7 +678,8 @@
     });
     var parts = ['collaborations : ' + (collabFailed ? 'indisponibles' : c)];
     parts.push('labels : ' + (labelFailed ? 'indisponibles'
-      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')));
+      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')
+        + (n.ext.rej ? ', ' + n.ext.rej + ' écartés (genre différent ou sans photo)' : '')));
     parts.push('ListenBrainz : ' + (lb === 'nomb' ? 'artiste absent de MusicBrainz'
       : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : l));
     if (both) parts.push('confirmés : ' + both);
