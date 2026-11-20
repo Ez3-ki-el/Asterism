@@ -358,6 +358,7 @@
         <label class="lg"><input type="checkbox" data-kind="d" checked aria-label="Artistes similaires (Deezer)"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/></svg><span>Artistes similaires (Deezer) <span class="cnt" data-count="d"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="c" checked aria-label="Collaboration"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.5 3.5"/></svg><span>Collaboration <span class="cnt" data-count="c"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="e" checked aria-label="Même label"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 3 1.5 3"/></svg><span>Même label <span class="cnt" data-count="e"></span></span></label>
+        <label class="lg"><input type="checkbox" data-kind="p" checked aria-label="Même artiste ou groupe"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="10 3 2 3 2 3"/></svg><span>Même artiste ou groupe <span class="cnt" data-count="p"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="l" checked aria-label="ListenBrainz"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/></svg><span>ListenBrainz <span class="cnt" data-count="l"></span></span></label>
         <div class="lg"><span class="sp"></span><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
         <div class="lgnote">Décocher un type masque ses liens, et les scores se recalculent avec les types cochés.</div>
@@ -412,7 +413,7 @@
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
       <ol id="lklist"></ol>
-      <p class="lknote">Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.</p>
+      <p class="lknote">Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label, projets) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.</p>
     </details>
   </div>
 
@@ -500,10 +501,10 @@
   function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
   /* Types de liens affiches (cases de la legende) : d Deezer, c collaboration, e label, l ListenBrainz.
      Hors option « Sources etendues », tout est affiche, pour ne jamais masquer sans moyen de reafficher. */
-  var kindsOn = { d: true, c: true, e: true, l: true }, kindsVer = 0, shown = null, minScore = 0;
+  var kindsOn = { d: true, c: true, e: true, l: true, p: true }, kindsVer = 0, shown = null, minScore = 0;
   try {
     var savedKinds = JSON.parse(localStorage.getItem('mg-kinds') || 'null');
-    if (savedKinds) ['d', 'c', 'e', 'l'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
+    if (savedKinds) ['d', 'c', 'e', 'l', 'p'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
   } catch (e) {}
   try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) {}
   function kOn(c) { return !extOn || kindsOn[c]; }
@@ -522,7 +523,7 @@
   function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
   /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
   function recomputeShown() {
-    if ((!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l)) && minScore <= 0) { shown = null; return; }
+    if ((!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p)) && minScore <= 0) { shown = null; return; }
     shown = new Set();
     links.forEach(function (lk) {
       if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
@@ -531,7 +532,7 @@
   }
   function refreshWeights() { links.forEach(function (lk) { lk.w = scoreOf(lk).score; }); }
   function updateLegend() {
-    var cnt = { d: 0, c: 0, e: 0, l: 0 };
+    var cnt = { d: 0, c: 0, e: 0, l: 0, p: 0 };
     links.forEach(function (lk) {
       var s = lk.k || 'd';
       for (var i = 0; i < s.length; i++) if (cnt[s[i]] !== undefined) cnt[s[i]]++;
@@ -606,6 +607,12 @@
       dst.l = { score: src.l.score, top: src.l.top, rank: src.l.rank };
     }
     if (src.c && (!dst.c || src.c.count > dst.c.count)) dst.c = { count: src.c.count };
+    if (src.p) {
+      dst.p = dst.p || { rels: [] };
+      src.p.rels.forEach(function (r) {
+        if (!dst.p.rels.some(function (x) { return x.t === r.t && x.s === r.s && x.o === r.o; })) dst.p.rels.push({ t: r.t, s: r.s, o: r.o });
+      });
+    }
     if (src.e) {
       dst.e = dst.e || { labels: [], cos: 0, match: false, size: 0 };
       src.e.labels.forEach(function (x) { if (dst.e.labels.indexOf(x) < 0) dst.e.labels.push(x); });
@@ -619,6 +626,15 @@
   /* Score de compatibilite (0 a 1). Chaque source donne sa preuve avec sa propre confiance, puis on
      combine par "au moins une source a raison" : 1 - produit des (1 - confiance). Un lien porte par
      une seule source reste donc modeste, et le score monte quand les sources concordent. */
+  /* Relation MusicBrainz en une phrase : s est le sujet de la relation, o son objet. */
+  function projLine(r) {
+    var v = { s: r.s, o: r.o };
+    return r.t === 'member of band' ? T('{s} est membre de {o}', v)
+      : r.t === 'subgroup' ? T('{s} est un sous-groupe de {o}', v)
+      : r.t === 'founder' ? T('{s} a fondé {o}', v)
+      : r.t === 'is person' ? T('{s} et {o} : même personne', v)
+      : T('{s} et {o} : collaboration', v);
+  }
   function scoreOf(lk) {
     var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1;
     function add(s, src, name, lines) { parts.push({ src: src, s: s, name: name, lines: lines }); prod *= (1 - s); }
@@ -637,6 +653,11 @@
     if ((ev.c || k.indexOf('c') >= 0) && kOn('c')) {
       var cnt = ev.c ? ev.c.count : 1;
       add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration', [cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun']);
+    }
+    if ((ev.p || k.indexOf('p') >= 0) && kOn('p')) {
+      var pr = ev.p ? ev.p.rels : [];
+      add(Math.min(0.9, 0.75 + 0.05 * Math.max(0, pr.length - 1)), 'p', T('Même artiste ou groupe (MusicBrainz)'),
+        pr.slice(0, 3).map(projLine));
     }
     if ((ev.e || k.indexOf('e') >= 0) && kOn('e')) {
       var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
@@ -715,6 +736,13 @@
   /* ---------- Sources etendues (experimental) : collaborations Deezer + ListenBrainz ---------- */
   var gen = 0;                       /* change quand le graphe est remplace : annule les travaux en vol */
   var extOn = false;
+  /* Traduction : les cles sont les textes francais ; {x} marque une valeur a inserer. Le dictionnaire EN est rempli plus bas. */
+  var LANG = 'fr', EN = {};
+  function T(fr, v) {
+    var s = (LANG === 'en' && EN[fr]) || fr;
+    if (v) Object.keys(v).forEach(function (k) { s = s.split('{' + k + '}').join(v[k]); });
+    return s;
+  }
   /* Nombre de titres affiches dans le top (3 a 10) ; on en charge toujours TOP_MAX pour changer sans nouvelle requete. */
   var TOP_MAX = 10, topN = 5;
   try { topN = Math.max(3, Math.min(TOP_MAX, parseInt(localStorage.getItem('mg-top'), 10) || 5)); } catch (e) {}
@@ -811,6 +839,49 @@
     });
     syncSim();
     return 'ok';
+  }
+
+  /* Autres projets : relations MusicBrainz entre artistes (membre de, sous-groupe, fondateur, meme personne,
+     collaboration), puis retrouvees chez Deezer par le nom exact. Couverture limitee aux fiches MusicBrainz detaillees. */
+  var PROJ_TYPES = { 'member of band': 1, 'subgroup': 1, 'founder': 1, 'is person': 1, 'collaboration': 1 };
+  async function enrichProj(n, g) {
+    await ensureMbid(n);
+    if (!alive(n, g)) return 'stop';
+    if (!n.mbid) return 'nomb';
+    var d = await mbJson('https://musicbrainz.org/ws/2/artist/' + n.mbid + '?inc=artist-rels&fmt=json');
+    if (!alive(n, g)) return 'stop';
+    var byMb = new Map();
+    ((d && d.relations) || []).forEach(function (r) {
+      if (!r.artist || !PROJ_TYPES[r.type]) return;
+      var e = byMb.get(r.artist.id) || { name: r.artist.name, rels: [] };
+      var fwd = r.direction !== 'backward';
+      e.rels.push({ t: r.type, s: fwd ? n.name : r.artist.name, o: fwd ? r.artist.name : n.name });
+      byMb.set(r.artist.id, e);
+    });
+    var list = Array.from(byMb.values()).slice(0, 10);
+    if (!list.length) return 'empty';
+    var byName = new Map();
+    nodes.forEach(function (m) { byName.set(normName(m.name), m); });
+    var hits = await Promise.all(list.map(function (e) {
+      var known = byName.get(normName(e.name));
+      if (known) return Promise.resolve(known);
+      return dzp('/search/artist?q=' + encodeURIComponent(e.name) + '&limit=5').then(function (sr) {
+        return (sr.data || []).filter(function (x) { return normName(x.name) === normName(e.name); })
+          .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0] || null;
+      }, function () { return null; });
+    }));
+    if (!alive(n, g)) return 'stop';
+    var added = 0;
+    held(n.id, function () {
+      hits.forEach(function (h, i) {
+        if (!h || h.id === n.id) return;
+        var m = byId.get(h.id) || ensureNode(h, n.x, n.y);
+        addLink(n, m, 'p', 0, { p: { rels: list[i].rels } });
+        added++;
+      });
+    });
+    syncSim();
+    return added ? 'ok' : 'nodz';
   }
 
   /* Labels : autres artistes sortis chez les labels des albums de l'artiste (type 'e').
@@ -1003,7 +1074,7 @@
     var g = gen;
     n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.' };
     n.enriching = true; startAnim();
-    var total = 3, done = 0;
+    var total = 4, done = 0;
     function progress(name) {
       done++;
       if (!alive(n, g) || done >= total) return;
@@ -1011,27 +1082,29 @@
     }
     setStatus('Sources étendues : recherche en cours (collaborations, labels, ListenBrainz), les nouveaux artistes apparaissent ensemble…', null, null, 'msg');
     if (selected === n) renderCard();
-    var collabFailed = false, lb, labelsUsed = [], labelFailed = false;
+    var collabFailed = false, lb, pj, labelsUsed = [], labelFailed = false;
     try {
       /* Les trois sources partent en meme temps ; leurs ajouts restent retenus jusqu'a la fin de la derniere. */
       await Promise.all([
         enrichCollab(n, g).catch(function () { collabFailed = true; }).then(function () { progress('collaborations'); }),
         enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function () { labelFailed = true; }).then(function () { progress('labels'); }),
-        enrichLB(n, g).then(function (r) { lb = r; }, function () { lb = 'err'; }).then(function () { progress('ListenBrainz'); })
+        enrichLB(n, g).then(function (r) { lb = r; }, function () { lb = 'err'; }).then(function () { progress('ListenBrainz'); }),
+        enrichProj(n, g).then(function (r) { pj = r; }, function () { pj = 'err'; }).then(function () { progress('MusicBrainz'); })
       ]);
     } finally {
       n.enriching = false;
       if (gen === g) releaseHold(n.id);   /* meme si l'artiste a ete supprime entre-temps : rien ne doit rester masque */
     }
     if (!alive(n, g)) return;
-    var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0;
+    var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0;
     links.forEach(function (lk) {
       if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
       if (!lk.k) return;
-      if (/[cle]/.test(lk.k)) anyExt++;
+      if (/[clep]/.test(lk.k)) anyExt++;
       if (lk.k.length > 1) both++;
       if (lk.k.indexOf('c') >= 0) c++;
       if (lk.k.indexOf('l') >= 0) l++;
+      if (lk.k.indexOf('p') >= 0) pCount++;
       if (lk.k.indexOf('e') >= 0) eCount++;
     });
     /* Resume court (barre d'etat, titre du detail) et detail ligne par ligne, replie dans la fiche. */
@@ -1043,6 +1116,9 @@
     if (!labelFailed && n.ext.mbfail) lines.push([null, 'style MusicBrainz indisponible, réessaie plus tard']);
     lines.push(['ListenBrainz', lb === 'nomb' ? 'artiste absent de MusicBrainz'
       : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : String(l)]);
+    lines.push(['Projets (MusicBrainz)', pj === 'nomb' ? 'artiste absent de MusicBrainz'
+      : pj === 'empty' ? 'aucune relation enregistrée' : pj === 'nodz' ? 'relations sans équivalent Deezer'
+      : pj === 'err' ? 'indisponible' : String(pCount)]);
     if (both) lines.push(['Confirmés par plusieurs sources', String(both)]);
     n.ext.lines = lines;
     n.ext.sum = 'Sources étendues : ' + (anyExt ? anyExt + (anyExt > 1 ? ' liens ajoutés' : ' lien ajouté') : 'aucun lien ajouté');
@@ -1122,7 +1198,8 @@
       ctx.strokeStyle = multi ? C.ink : C.link;
       ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
       ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
-        : ek === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k] : [5 / k, 4 / k]));
+        : ek === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k]
+        : ek === 'p' ? [10 / k, 3 / k, 2 / k, 3 / k, 2 / k, 3 / k] : [5 / k, 4 / k]));
       ctx.stroke();
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
@@ -1831,7 +1908,7 @@
   }
 
   /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
-  var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3' };
+  var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3', p: '10 3 2 3 2 3' };
   function sampleSvg(src) {
     return '<svg viewBox="0 0 24 6" aria-hidden="true"><line x1="1" y1="3" x2="23" y2="3" stroke="currentColor" stroke-width="1.3"'
       + (DASH[src] ? ' stroke-dasharray="' + DASH[src] + '"' : ' stroke-opacity="0.5"') + '/></svg>';
