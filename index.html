@@ -123,6 +123,9 @@
         <button id="share" type="button">Copier le lien</button>
         <button id="png" type="button">Image PNG</button>
       </div>
+      <div class="row">
+        <button id="marksx" type="button">Exporter mes écoutes</button>
+      </div>
       </details>
       <div class="row only-narrow">
         <button id="theme2" type="button">Mode sombre</button>
@@ -154,6 +157,12 @@
       <button id="alisten" type="button">&Eacute;couter</button>
       <button id="atop" type="button">Top 5 titres</button>
     </div>
+    <div class="marks" id="cmarks" role="group" aria-label="Mes écoutes">
+      <button type="button" data-mark="later" aria-pressed="false">À écouter</button>
+      <button type="button" data-mark="liked" aria-pressed="false">Aimé</button>
+      <button type="button" data-mark="heard" aria-pressed="false">Écouté</button>
+      <button type="button" id="atour" class="link">Écouter ses voisins</button>
+    </div>
     <div class="now" id="cnow" hidden>
       <span id="cnowt"></span>
       <div class="bar"><i id="cbar"></i></div>
@@ -167,6 +176,10 @@
     <details id="cwd" class="lk" hidden>
       <summary id="cwdsum"></summary>
       <div id="cwdl" class="exl"></div>
+    </details>
+    <details id="cdisc" class="lk">
+      <summary id="cdiscsum">Discographie</summary>
+      <ol id="cdiscl" class="disc"></ol>
     </details>
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
@@ -206,6 +219,7 @@
     </dl>
   </div>
 
+  <div id="tourbar" class="box" role="region" aria-label="Écoute de la carte" hidden></div>
   <div id="xprog" class="box" role="status" aria-live="polite" hidden></div>
   <div id="toast" class="box" role="status" aria-live="polite" hidden></div>
   <div id="status"></div>

@@ -61,6 +61,7 @@ el('panel').addEventListener('toggle', function () { if (el('panel').open && el(
 function renderCard() {
   var n = selected;
   updateNudge();
+  renderTour();
   card.hidden = !n;
   if (!n) { updateNow(); return; }
   card.classList.toggle('min', cardMin);
@@ -86,6 +87,8 @@ function renderCard() {
   renderLinks(n);
   renderOut(n);
   renderWd(n);
+  renderMarks(n);
+  renderDisc(n);
   var hints = [];
   var dd = dDeg(n), few = n.expanded && !n.loading && dd <= 3;
   if (few) hints.push(dd === 0 ? T('Deezer ne propose aucun artiste lié.')
@@ -355,10 +358,205 @@ function renderTracks(n) {
 
 function updateNow() {
   var box = el('cnow'), n = selected;
-  if (!n || !playing || playing.id !== n.id || !n.tracks) { box.hidden = true; el('cbar').style.width = '0'; return; }
+  if (!n || !playing || playing.id !== n.id) { box.hidden = true; el('cbar').style.width = '0'; return; }
+  var t = playing.title || (n.tracks && n.tracks[playing.idx] ? n.tracks[playing.idx].title : '');
+  if (!t) { box.hidden = true; return; }
   box.hidden = false;
-  el('cnowt').textContent = n.tracks[playing.idx].title;
+  el('cnowt').textContent = t;
 }
+
+/* Joue un extrait quelconque (titre d'album, voisin de l'ecoute de la carte). kind : 'album' ou 'tour'. */
+async function playTrack(n, title, url, kind, idx) {
+  var tok = ++playToken;
+  playing = { id: n.id, idx: idx === undefined ? -1 : idx, paused: false, title: title, kind: kind };
+  audio.src = url; audio.volume = 0;
+  renderCard();
+  try {
+    await audio.play();
+    if (tok !== playToken) { audio.pause(); return false; }
+    fade(0.7, 300);
+    return true;
+  } catch (e) {
+    dbg('lecture', e);
+    if (tok === playToken) { playing = null; renderCard(); el('chint').textContent = T('Lecture bloquée par le navigateur'); }
+    return false;
+  }
+}
+
+/* ---------- Ecouter la carte : l'artiste puis ses voisins, du plus compatible au moins compatible ---------- */
+var tour = null, tourSelecting = false;
+function neighboursByScore(n) {
+  var best = new Map();
+  links.forEach(function (lk) {
+    if (!ekOf(lk)) return;
+    var a = idOf(lk.source), b = idOf(lk.target);
+    if (a !== n.id && b !== n.id) return;
+    var m = byId.get(a === n.id ? b : a);
+    if (m && vis(m) && (!best.has(m.id) || best.get(m.id).s < lk.w)) best.set(m.id, { n: m, s: lk.w });
+  });
+  return Array.from(best.values()).sort(function (x, y) { return y.s - x.s; }).map(function (x) { return x.n; });
+}
+function startTour(origin) {
+  var list = neighboursByScore(origin);
+  if (!list.length) { toast(T('Aucun voisin à écouter')); return; }
+  tour = { name: origin.name, list: [origin].concat(list), i: -1 };
+  document.body.classList.add('touring');
+  tourGo(1);
+}
+function stopTour(msg) {
+  if (!tour) return;
+  tour = null;
+  document.body.classList.remove('touring');
+  renderTour();
+  if (msg) toast(msg);
+}
+async function tourGo(step) {
+  if (!tour) return;
+  var me = tour;
+  for (var tries = 0; tries < me.list.length; tries++) {
+    me.i += step;
+    if (me.i < 0) me.i = 0;
+    if (me.i >= me.list.length) { stopTour(T('Écoute de la carte terminée')); return; }
+    var n = me.list[me.i];
+    if (byId.get(n.id) !== n) continue;
+    tourSelecting = true; select(n); tourSelecting = false;
+    if (typeof ensureOnScreen === 'function') ensureOnScreen(n);
+    renderTour();
+    var tracks = await loadTracks(n);
+    if (tour !== me) return;
+    var idx = tracks ? tracks.findIndex(function (x) { return x.url; }) : -1;
+    if (idx < 0) continue;   /* pas d'extrait : on passe au suivant */
+    var ok = await playTrack(n, tracks[idx].title, tracks[idx].url, 'tour', idx);
+    if (!ok && tour === me) stopTour();
+    return;
+  }
+  stopTour(T('Écoute de la carte terminée'));
+}
+function renderTour() {
+  var bar = el('tourbar');
+  if (!tour) { bar.hidden = true; return; }
+  bar.hidden = false;
+  bar.textContent = '';
+  var cur = tour.list[Math.max(0, tour.i)];
+  var t = document.createElement('div'); t.className = 'tt';
+  t.textContent = T('Écoute de la carte : {name}', { name: cur.name }) + ' ';
+  var pos = document.createElement('span'); pos.textContent = '(' + (tour.i + 1) + '/' + tour.list.length + ')';
+  t.appendChild(pos);
+  function btn(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); bar.appendChild(b); }
+  bar.appendChild(t);
+  btn(T('Précédent'), function () { tourGo(-1); });
+  btn(playing && playing.paused ? T('Reprendre') : T('Pause'), function () { if (playing) togglePause(); });
+  btn(T('Suivant'), function () { tourGo(1); });
+  btn(T('Arrêter'), function () { stopAudio(); stopTour(); });
+}
+
+/* ---------- Discographie : albums Deezer avec pochette, un clic joue le premier extrait de l'album ---------- */
+function loadAlbums(n) {
+  if (n.albums !== undefined) return Promise.resolve(n.albums);
+  if (n.albumsP) return n.albumsP;
+  n.albumsP = dz('/artist/' + n.id + '/albums?limit=100').then(function (d) {
+    var seen = new Set();
+    n.albums = (d.data || []).filter(function (a) {
+      var k = strictName(a.title);
+      if (seen.has(k)) return false;
+      seen.add(k); return true;
+    }).sort(function (a, b) { return String(b.release_date || '').localeCompare(String(a.release_date || '')); });
+    n.albumsP = null;
+    return n.albums;
+  }, function (e) { dbg('discographie', e); n.albumsP = null; n.albums = null; return null; });
+  return n.albumsP;
+}
+var DISC_TYPES = { album: 'Album', ep: 'EP', single: 'Single', compile: 'Compilation' };
+function renderDisc(n) {
+  var box = el('cdisc'), ol = el('cdiscl');
+  el('cdiscsum').textContent = n.albums ? T('Discographie ({n})', { n: n.albums.length }) : T('Discographie');
+  if (!box.open) return;
+  ol.textContent = '';
+  if (n.albums === undefined) {
+    var wait = document.createElement('li'); wait.className = 'more'; wait.textContent = T('Chargement'); ol.appendChild(wait);
+    loadAlbums(n).then(function () { if (selected === n) renderDisc(n); });
+    return;
+  }
+  if (!n.albums || !n.albums.length) {
+    var none = document.createElement('li'); none.className = 'more'; none.textContent = T('Aucun album chez Deezer'); ol.appendChild(none);
+    return;
+  }
+  n.albums.slice(0, 24).forEach(function (a) {
+    var li = document.createElement('li');
+    if (playing && playing.id === n.id && playing.album === a.id) li.className = 'on';
+    var img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+    if (a.cover_small) img.src = a.cover_small;
+    var dt = document.createElement('div'); dt.className = 'dt';
+    var b = document.createElement('b'); b.textContent = a.title;
+    var sp = document.createElement('span');
+    sp.textContent = [String(a.release_date || '').slice(0, 4), DISC_TYPES[a.record_type] ? T(DISC_TYPES[a.record_type]) : ''].filter(Boolean).join(' · ');
+    dt.append(b, sp); li.append(img, dt);
+    li.addEventListener('click', function () { playAlbum(n, a); });
+    ol.appendChild(li);
+  });
+  if (n.albums.length > 24) {
+    var more = document.createElement('li'); more.className = 'more';
+    more.textContent = T('+ {n} autres', { n: n.albums.length - 24 }); ol.appendChild(more);
+  }
+}
+async function playAlbum(n, a) {
+  stopTour();
+  try {
+    var d = await dz('/album/' + a.id + '/tracks?limit=10');
+    var tr = (d.data || []).filter(function (t) { return t.preview; })[0];
+    if (!tr) { toast(T('Aucun extrait pour cet album')); return; }
+    var ok = await playTrack(n, a.title + ' · ' + tr.title, tr.preview, 'album');
+    if (ok && playing) { playing.album = a.id; renderCard(); }
+  } catch (e) { dbg('album', e); toast(T('Erreur Deezer : {m}', { m: T(e.message) })); }
+}
+el('cdisc').addEventListener('toggle', function () { if (selected && el('cdisc').open) renderDisc(selected); });
+
+/* ---------- Mes ecoutes : a ecouter, aime, ecoute ; garde dans le navigateur (cle mg-marks) ---------- */
+var marks = {};
+try { marks = JSON.parse(localStorage.getItem('mg-marks') || '{}') || {}; } catch (e) { dbg('marques illisibles', e); marks = {}; }
+function saveMarks() {
+  try { localStorage.setItem('mg-marks', JSON.stringify(marks)); } catch (e) { dbg('marques', e); }
+}
+function setMark(n, s) {
+  if (marks[n.id] && marks[n.id].s === s) delete marks[n.id];
+  else marks[n.id] = { s: s, name: n.name, t: Date.now() };
+  saveMarks(); renderCard(); draw();
+}
+var MARK_LABELS = { later: 'À écouter', liked: 'Aimé', heard: 'Écouté' };
+function renderMarks(n) {
+  var m = marks[n.id];
+  document.querySelectorAll('#cmarks button[data-mark]').forEach(function (b) {
+    var k = b.getAttribute('data-mark');
+    b.textContent = T(MARK_LABELS[k]);
+    b.setAttribute('aria-pressed', m && m.s === k ? 'true' : 'false');
+  });
+  el('cmarks').setAttribute('aria-label', T('Mes écoutes'));
+  el('atour').textContent = T('Écouter ses voisins');
+  el('atour').hidden = !neighboursByScore(n).length;
+}
+document.querySelectorAll('#cmarks button[data-mark]').forEach(function (b) {
+  b.addEventListener('click', function () { if (selected) setMark(selected, b.getAttribute('data-mark')); });
+});
+el('atour').addEventListener('click', function () { if (selected) startTour(selected); });
+el('marksx').addEventListener('click', function () {
+  var ids = Object.keys(marks);
+  if (!ids.length) { toast(T('Aucune écoute marquée pour l’instant')); return; }
+  var groups = [['later', T('À écouter')], ['liked', T('Aimé')], ['heard', T('Écouté')]];
+  var lines = ['Asterism · ' + T('Mes écoutes') + ' · ' + new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR'), ''];
+  groups.forEach(function (g) {
+    var list = ids.filter(function (id) { return marks[id].s === g[0]; }).sort(function (a, b) { return marks[a].name.localeCompare(marks[b].name); });
+    if (!list.length) return;
+    lines.push(g[1] + ' (' + list.length + ')');
+    list.forEach(function (id) { lines.push('- ' + marks[id].name + '  https://www.deezer.com/artist/' + id); });
+    lines.push('');
+  });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }));
+  a.download = 'asterism-mes-ecoutes.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  toast(T('{n} artistes exportés', { n: ids.length }));
+});
 
 /* Repli : quand Deezer n'a aucun extrait, l'API de recherche d'Apple (iTunes, sans cle, CORS ouvert) en fournit
    de 30 secondes. Pas d'identifiant commun entre les deux services : on n'accepte que les titres dont le nom
@@ -556,4 +754,8 @@ bar.addEventListener('pointercancel', function () { seeking = false; });
 audio.addEventListener('timeupdate', function () {
   if (!seeking && audio.duration) el('cbar').style.width = (100 * audio.currentTime / audio.duration) + '%';
 });
-audio.addEventListener('ended', function () { playing = null; renderCard(); });
+audio.addEventListener('ended', function () {
+  var wasTour = tour && playing && playing.kind === 'tour';
+  playing = null; renderCard();
+  if (wasTour) tourGo(1);
+});

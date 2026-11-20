@@ -18,6 +18,7 @@ function recomputeVisible() {
 }
 
 function select(n) {
+  if (tour && !tourSelecting) stopTour();
   if (playing && (!n || playing.id !== n.id)) stopAudio();
   if (playing && n && playing.id === n.id) playing.hover = false;
   selected = n;
@@ -138,6 +139,16 @@ function draw() {
         ctx.strokeStyle = C.accent; ctx.lineWidth = 2 / k; ctx.stroke();
       }
       ctx.globalAlpha = a;
+    }
+    var mk = marks[n.id];
+    if (mk) {
+      /* Mes ecoutes : point plein orange = aime, anneau orange = a ecouter, point plein encre = ecoute. */
+      var mx2 = n.x - r * 0.72, my2 = n.y + r * 0.72, mr = 4.5 / k;
+      ctx.beginPath(); ctx.arc(mx2, my2, mr + 1.5 / k, 0, 6.2832);
+      ctx.fillStyle = C.bg; ctx.fill();
+      ctx.beginPath(); ctx.arc(mx2, my2, mr, 0, 6.2832);
+      if (mk.s === 'later') { ctx.strokeStyle = C.accent; ctx.lineWidth = 1.4 / k; ctx.stroke(); }
+      else { ctx.fillStyle = mk.s === 'liked' ? C.accent : C.ink; ctx.fill(); }
     }
     if (n.pinned) {
       ctx.fillStyle = C.accent;

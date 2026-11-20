@@ -171,6 +171,30 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #alisten { border-color: var(--accent); }
 #card .lk ol { list-style: none; margin: 2px 0 0; padding: 0; }
 #card .lk li { display: block; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; }
+/* Mes ecoutes : trois etats exclusifs, plus le lancement de l'ecoute des voisins. */
+#card .marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+#card .marks button[data-mark] { padding: 3px 7px; font-size: 10.5px; border-color: var(--line); color: var(--muted); white-space: nowrap; }
+@media (max-width: 640px) { #card .marks #atour { flex-basis: 100%; margin-left: 0; text-align: left; padding: 4px 0; } }
+#card .marks button[data-mark]:hover { background: transparent; color: var(--ink); border-color: var(--ink); }
+#card .marks button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+#card .marks #atour { margin-left: auto; font-size: 11px; }
+#card .marks #atour[hidden] { display: none; }
+/* Discographie */
+#card .lk .disc li { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-size: 11px; }
+#card .lk .disc img { width: 34px; height: 34px; flex: none; object-fit: cover; background: var(--line); }
+#card .lk .disc .dt { flex: 1; min-width: 0; }
+#card .lk .disc .dt b { display: block; font-weight: normal; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#card .lk .disc .dt span { color: var(--muted); font-size: 10.5px; }
+#card .lk .disc li:hover b, #card .lk .disc li.on b { color: var(--accent); }
+#card .lk .disc li.more { cursor: default; color: var(--muted); }
+/* Barre de l'ecoute de la carte */
+#tourbar { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 21; width: min(420px, calc(100% - 32px));
+  padding: 10px 12px; border-color: var(--accent); font-size: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#tourbar[hidden] { display: none; }
+#tourbar .tt { flex: 1 1 100%; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tourbar .tt span { color: var(--muted); }
+#tourbar button { padding: 4px 9px; font-size: 11px; }
+body.touring #xprog { bottom: 110px; }
 #panel .ticks { display: flex; justify-content: space-between; margin: 1px 4px 0; color: var(--muted); font-size: 9.5px; }
 #panel .ticks span { width: 1px; display: flex; flex-direction: column; align-items: center; white-space: nowrap; overflow: visible; }
 #panel .ticks span::before { content: ""; width: 1px; height: 5px; background: var(--muted); margin-bottom: 1px; }
@@ -332,6 +356,8 @@ button:disabled:hover { background: transparent; color: var(--ink); }
   #tools { top: 66px; bottom: auto; right: 14px; }
   #toast { bottom: auto; top: 68px; }
   #xprog { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; transform: none; }
+  #tourbar { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; transform: none; }
+  body.touring #xprog { top: 150px; bottom: auto; }
 
   #empty { left: 20px; bottom: 56px; }
 }

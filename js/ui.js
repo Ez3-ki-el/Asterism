@@ -137,6 +137,7 @@ document.getElementById('dist').addEventListener('input', function (e) {
 document.getElementById('fit').addEventListener('click', fit);
 function clearGraph() {
   gen++;
+  stopTour();
   xjobs.length = 0; renderProg();
   hovered = null; selected = null; visible = null; stopAudio();
   nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();

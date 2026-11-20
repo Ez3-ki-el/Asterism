@@ -30,6 +30,7 @@ function snapshot() {
 
 function restore(s) {
   gen++;
+  stopTour();
   xjobs.length = 0; renderProg();
   var old = new Map(byId);
   nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
@@ -284,6 +285,7 @@ function menuItems(n) {
     { label: T('Explorer'), disabled: n.expanded || n.loading, run: function () { expand(n); renderCard(); } },
     { label: (playing && playing.id === n.id) ? (playing.paused ? T('Reprendre') : T('Pause')) : T('Écouter'),
       run: function () { if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0); } },
+    { label: T('Écouter ses voisins'), disabled: !neighboursByScore(n).length, run: function () { startTour(n); } },
     { label: T('Top {n} titres', { n: topN }),
       run: function () { n.showTop = true; loadTracks(n).then(function () { if (selected === n) renderCard(); }); } },
     { label: focusDepth > 0 ? T('Quitter le focus') : T('Focus sur ce nœud'),
