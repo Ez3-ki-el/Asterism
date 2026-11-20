@@ -1732,13 +1732,25 @@
     renderLinks(n);
     renderOut(n);
     var hints = [];
-    if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié.');
+    var few = n.expanded && !n.loading && n.deg <= 3;
+    if (few) hints.push(n.deg === 0 ? 'Deezer ne propose aucun artiste lié.'
+      : 'Deezer ne propose que ' + n.deg + (n.deg > 1 ? ' artistes liés.' : ' artiste lié.'));
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
     if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits : Apple (absents chez Deezer).');
     if (n.tracks === null) hints.push('Aucun extrait disponible' + (n.appleNote ? ' (repli Apple : ' + n.appleNote + ')' : '') + '.');
     var hb = el('chint');
     hb.textContent = '';
     hints.forEach(function (h) { var d = document.createElement('div'); d.textContent = h; hb.appendChild(d); });
+    /* Peu de voisins et sources etendues desactivees : on propose de les essayer. */
+    if (few && !extOn) {
+      var inv = document.createElement('div');
+      inv.append('Les sources étendues (expérimental) peuvent en trouver d’autres. ');
+      var tryBtn = document.createElement('button');
+      tryBtn.type = 'button'; tryBtn.className = 'link'; tryBtn.textContent = 'Essayer';
+      tryBtn.addEventListener('click', function () { setExt(true); });
+      inv.appendChild(tryBtn);
+      hb.appendChild(inv);
+    }
     var extLines = n.ext && n.ext.lines;
     el('cext').hidden = !extLines;
     if (extLines) {
@@ -1997,13 +2009,16 @@
   });
   el('extopt').checked = extOn;
   el('extlegend').hidden = !extOn;
-  el('extopt').addEventListener('change', function (e) {
-    extOn = e.target.checked;
-    el('extlegend').hidden = !extOn;
-    try { localStorage.setItem('mg-ext', extOn ? '1' : '0'); } catch (err) {}
+  /* Active ou desactive les sources etendues (case des reglages, ou bouton « Essayer » de la fiche). */
+  function setExt(on) {
+    extOn = on;
+    el('extopt').checked = on;
+    el('extlegend').hidden = !on;
+    try { localStorage.setItem('mg-ext', on ? '1' : '0'); } catch (err) {}
     applyKinds();
-    if (extOn && selected && selected.expanded && !selected.ext) { commit(); enrich(selected); }
-  });
+    if (on && selected && selected.expanded && !selected.ext) { commit(); enrich(selected); }
+  }
+  el('extopt').addEventListener('change', function (e) { setExt(e.target.checked); });
   /* Cases de la legende : un type de lien par case, memorise dans le navigateur. */
   document.querySelectorAll('#extlegend input[data-kind]').forEach(function (inp) {
     var kind = inp.getAttribute('data-kind');
