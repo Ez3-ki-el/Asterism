@@ -200,6 +200,9 @@
   #card .exl div { padding: 3px 0; }
   #card .exl b { color: var(--ink); font-weight: normal; }
   #card .exl .sub { padding-left: 12px; }
+  #card .exl .wl { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-top: 6px; }
+  #card .exl .wl a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  #card .exl .wl a:hover { color: var(--accent); }
   #card .lk { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
   #card .lk[hidden] { display: none; }
   #card .lk summary { cursor: pointer; list-style: none; color: var(--muted); font-size: 11px; padding: 4px 0; }
@@ -446,6 +449,10 @@
     <details id="cext" class="lk" hidden>
       <summary id="cextsum"></summary>
       <div id="cextl" class="exl"></div>
+    </details>
+    <details id="cwd" class="lk" hidden>
+      <summary id="cwdsum"></summary>
+      <div id="cwdl" class="exl"></div>
     </details>
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
@@ -1226,6 +1233,7 @@
     recomputeVisible();
     renderCard();
     draw();
+    if (n) ensureWd(n).then(function () { if (selected === n) renderCard(); });
   }
 
   /* ---------- Rendu ---------- */
@@ -2019,6 +2027,7 @@
     renderTracks(n);
     renderLinks(n);
     renderOut(n);
+    renderWd(n);
     var hints = [];
     var dd = dDeg(n), few = n.expanded && !n.loading && dd <= 3;
     if (few) hints.push(dd === 0 ? T('Deezer ne propose aucun artiste lié.')
@@ -2077,16 +2086,133 @@
     ['Bandcamp', 'https://bandcamp.com/search?item_type=b&q='],
     ['SoundCloud', 'https://soundcloud.com/search/people?q=']
   ];
+  /* ---------- Wikidata : fiche de l'artiste retrouvee par son identifiant Deezer (propriete P2722) ----------
+     Donne les identifiants exacts (Spotify, Apple Music, YouTube, Bandcamp, SoundCloud, Instagram, Discogs...), le site officiel,
+     les genres, le pays, les dates et la page Wikipedia. Sans cle ; reponse mise en cache par artiste (n.wd : objet, null = pas de fiche). */
+  var WD_API = 'https://www.wikidata.org/w/api.php?origin=*&format=json&';
+  var WD_IDS = ['P1902', 'P2850', 'P2397', 'P3040', 'P3283', 'P2003', 'P1953', 'P434'];
+  function wdJson(q) {
+    return fetch(WD_API + q).then(function (r) {
+      if (!r.ok) throw new Error('Wikidata ' + r.status);
+      return r.json();
+    });
+  }
+  function wdVals(c, p) {
+    return (c[p] || []).filter(function (x) { return x.rank !== 'deprecated' && x.mainsnak && x.mainsnak.datavalue; })
+      .map(function (x) { return x.mainsnak.datavalue.value; });
+  }
+  function wdTime(v) {
+    var m = v && /^([+-])(\d{4,})-(\d\d)-(\d\d)/.exec(v.time || '');
+    if (!m || m[1] === '-') return null;
+    return { y: +m[2], m: +m[3], d: +m[4], prec: v.precision || 9 };
+  }
+  function ensureWd(n) {
+    if (n.wd !== undefined) return Promise.resolve(n.wd);
+    if (n.wdP) return n.wdP;
+    n.wdP = (async function () {
+      var r = await wdJson('action=query&list=search&srsearch=' + encodeURIComponent('haswbstatement:P2722=' + n.id));
+      var hit = r && r.query && r.query.search && r.query.search[0];
+      if (!hit || !/^Q\d+$/.test(hit.title)) return null;
+      var q = hit.title;
+      var ent = (await wdJson('action=wbgetentities&ids=' + q + '&props=claims|sitelinks&sitefilter=frwiki|enwiki')).entities[q];
+      var c = ent.claims || {}, w = { q: q, ids: {}, wiki: {} };
+      WD_IDS.forEach(function (p) {
+        var v = wdVals(c, p).filter(function (x) { return typeof x === 'string'; });
+        if (v.length) w.ids[p] = v;
+      });
+      var web = wdVals(c, 'P856')[0];
+      try { var u = new URL(web); if (/^https?:$/.test(u.protocol)) w.web = u.href; } catch (e) {}
+      ['frwiki', 'enwiki'].forEach(function (k) {
+        if (ent.sitelinks && ent.sitelinks[k]) w.wiki[k.slice(0, 2)] = ent.sitelinks[k].title;
+      });
+      w.birth = wdTime(wdVals(c, 'P569')[0]); w.death = wdTime(wdVals(c, 'P570')[0]); w.formed = wdTime(wdVals(c, 'P571')[0]);
+      var itemIds = function (p, max) { return wdVals(c, p).filter(function (x) { return x && x.id; }).map(function (x) { return x.id; }).slice(0, max); };
+      var gen = itemIds('P136', 5), ctry = itemIds('P27', 3);
+      if (!ctry.length) ctry = itemIds('P495', 3);
+      var place = itemIds('P19', 1);
+      var all = gen.concat(ctry, place).filter(function (x, i, a) { return a.indexOf(x) === i; });
+      var lab = {};
+      if (all.length) {
+        var le = (await wdJson('action=wbgetentities&ids=' + all.join('|') + '&props=labels&languages=fr|en')).entities || {};
+        Object.keys(le).forEach(function (id) {
+          var L = le[id].labels || {};
+          lab[id] = { fr: L.fr && L.fr.value, en: L.en && L.en.value };
+        });
+      }
+      var named = function (ids) { return ids.map(function (id) { return lab[id]; }).filter(Boolean); };
+      w.genres = named(gen); w.countries = named(ctry); w.place = named(place)[0] || null;
+      return w;
+    })().then(function (w) { n.wd = w; n.wdP = null; return w; },
+              function () { n.wdP = null; return undefined; });   /* erreur reseau : on retentera a la prochaine selection */
+    return n.wdP;
+  }
+  function wdLabel(o) { return o ? (o[LANG] || o.fr || o.en || '') : ''; }
+  function wdDate(t) {
+    if (!t) return '';
+    var loc = LANG === 'en' ? 'en-GB' : 'fr-FR';
+    if (t.prec < 10 || !t.m) return String(t.y);
+    var d = new Date(Date.UTC(t.y, t.m - 1, t.prec >= 11 ? t.d : 1));
+    return d.toLocaleDateString(loc, t.prec >= 11 ? { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }
+      : { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+  function wdId(w, p) {
+    var v = (w.ids[p] || []).filter(function (x) { return /^[A-Za-z0-9._-]+$/.test(x); })[0];
+    return v || '';
+  }
+  /* Adresses exactes : un service n'apparait en lien exact que si Wikidata connait l'identifiant. */
+  var EXACT = {
+    'Spotify': function (w) { var i = wdId(w, 'P1902'); return i && 'https://open.spotify.com/artist/' + i; },
+    'Apple Music': function (w) { var i = wdId(w, 'P2850'); return /^\d+$/.test(i) && 'https://music.apple.com/' + (LANG === 'en' ? 'us' : 'fr') + '/artist/' + i; },
+    'YouTube Music': function (w) { var i = wdId(w, 'P2397'); return i && 'https://music.youtube.com/channel/' + i; },
+    'Bandcamp': function (w) { var i = wdId(w, 'P3283'); return /^[a-z0-9-]+$/i.test(i) && 'https://' + i + '.bandcamp.com'; },
+    'SoundCloud': function (w) { var i = wdId(w, 'P3040'); return i && 'https://soundcloud.com/' + i; }
+  };
+  function renderWd(n) {
+    var w = n.wd, box = el('cwd');
+    box.hidden = !w;
+    if (!w) return;
+    el('cwdsum').textContent = T('Identité et liens (Wikidata)');
+    var xl = el('cwdl');
+    xl.textContent = '';
+    function row(label, text) {
+      if (!text) return;
+      var d = document.createElement('div'), b = document.createElement('b');
+      b.textContent = label + (LANG === 'en' ? ': ' : ' : ');
+      d.append(b, text); xl.appendChild(d);
+    }
+    row(T('Genres'), w.genres.map(wdLabel).filter(Boolean).join(', '));
+    row(T('Pays'), w.countries.map(wdLabel).filter(Boolean).join(', '));
+    if (w.birth) row(T('Naissance'), wdDate(w.birth) + (w.place ? ', ' + wdLabel(w.place) : ''));
+    if (w.formed && !w.birth) row(T('Formé en'), wdDate(w.formed));
+    if (w.death) row(T('Décès'), wdDate(w.death));
+    var wl = document.createElement('div');
+    wl.className = 'wl';
+    function link(label, href) {
+      var a = document.createElement('a');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = label;
+      wl.appendChild(a);
+    }
+    if (w.web) link(T('Site officiel'), w.web);
+    var ig = wdId(w, 'P2003'); if (ig) link('Instagram', 'https://www.instagram.com/' + encodeURIComponent(ig) + '/');
+    var dc = wdId(w, 'P1953'); if (/^\d+$/.test(dc)) link('Discogs', 'https://www.discogs.com/artist/' + dc);
+    var wk = LANG === 'en' ? (w.wiki.en ? 'en' : 'fr') : (w.wiki.fr ? 'fr' : 'en');
+    if (w.wiki[wk]) link(T('Wikipédia'), 'https://' + wk + '.wikipedia.org/wiki/' + encodeURIComponent(w.wiki[wk].replace(/ /g, '_')));
+    var mb = wdId(w, 'P434'); if (/^[0-9a-f-]{36}$/i.test(mb)) link('MusicBrainz', 'https://musicbrainz.org/artist/' + mb);
+    link('Wikidata', 'https://www.wikidata.org/wiki/' + w.q);
+    xl.appendChild(wl);
+  }
+
   function renderOut(n) {
     var box = el('coutl'), q = encodeURIComponent(n.name), NS = 'http://www.w3.org/2000/svg';
     box.textContent = '';
-    function add(label, href, direct) {
+    function add(label, href, direct, exact) {
       var a = document.createElement('a');
       a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      a.title = direct ? T('{label} : fiche de l’artiste (lien direct)', { label: label })
+      a.title = exact ? T('{label} : fiche de l’artiste (lien exact)', { label: label })
+        : direct ? T('{label} : fiche de l’artiste (lien direct)', { label: label })
         : T('{label} : rechercher {name} (un homonyme peut apparaître)', { label: label, name: n.name });
       a.setAttribute('aria-label', a.title);
-      if (direct) a.className = 'direct';
+      if (direct || exact) a.className = 'direct';
       var svg = document.createElementNS(NS, 'svg');
       svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
       var path = document.createElementNS(NS, 'path');
@@ -2095,7 +2221,10 @@
       box.appendChild(a);
     }
     add('Deezer', 'https://www.deezer.com/artist/' + n.id, true);
-    OUT.forEach(function (o) { add(o[0], o[1] + q, false); });
+    OUT.forEach(function (o) {
+      var ex = n.wd && EXACT[o[0]] ? EXACT[o[0]](n.wd) : '';
+      add(o[0], ex || o[1] + q, false, !!ex);
+    });
   }
 
   /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
@@ -2701,7 +2830,11 @@
     'Copie ce lien :': 'Copy this link:', 'Partage impossible : {m}': 'Sharing failed: {m}',
     'Rien à exporter : la carte est vide': 'Nothing to export: the map is empty',
     'Export impossible': 'Export failed', 'Image enregistrée': 'Image saved',
-    'Export impossible : images protégées par le navigateur': 'Export failed: images protected by the browser'
+    'Export impossible : images protégées par le navigateur': 'Export failed: images protected by the browser',
+    'Identité et liens (Wikidata)': 'Identity and links (Wikidata)',
+    'Genres': 'Genres', 'Pays': 'Country', 'Naissance': 'Born', 'Formé en': 'Formed in', 'Décès': 'Died',
+    'Site officiel': 'Official website', 'Wikipédia': 'Wikipedia',
+    '{label} : fiche de l’artiste (lien exact)': '{label}: artist page (exact link)'
   };
 
   /* Traduit le texte et les attributs du HTML statique ; l'original francais est memorise sur chaque noeud pour revenir en arriere.
