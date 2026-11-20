@@ -373,9 +373,76 @@ async function enrichLabel(n, g) {
   return used;
 }
 
+/* Influences : propriete Wikidata P737 (« influence par »), dans les deux sens : les influences citees par l'artiste
+   et les artistes qui le citent. Chaque fiche est retrouvee chez Deezer par son identifiant Deezer (P2722) ; a defaut,
+   par le nom exact, mais seulement pour une fiche musicale (identifiant MusicBrainz P434), pour eviter les homonymes. */
+var INFL_MAX = 16;
+function wdClaim(id, p) {
+  return wdJson('action=wbgetclaims&entity=' + id + '&property=' + p).then(function (r) {
+    return ((r.claims && r.claims[p]) || []).filter(function (c) { return c.rank !== 'deprecated'; })
+      .map(function (c) { return c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value; })
+      .filter(function (v) { return typeof v === 'string'; })[0] || '';
+  }, function () { return ''; });
+}
+async function enrichInfl(n, g) {
+  var w = await ensureWd(n);
+  if (!alive(n, g)) return 'stop';
+  if (w === undefined) throw new Error('Wikidata indisponible');
+  if (!w) return 'nowd';
+  var q = w.q, dir = new Map();
+  var res = await Promise.all([
+    wdJson('action=wbgetclaims&entity=' + q + '&property=P737'),
+    wdJson('action=query&list=search&srlimit=20&srsearch=' + encodeURIComponent('haswbstatement:P737=' + q))
+  ]);
+  if (!alive(n, g)) return 'stop';
+  ((res[0].claims && res[0].claims.P737) || []).forEach(function (c) {
+    var v = c.rank !== 'deprecated' && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value;
+    if (v && /^Q\d+$/.test(v.id || '')) dir.set(v.id, 'by');
+  });
+  ((res[1].query && res[1].query.search) || []).forEach(function (h) {
+    if (/^Q\d+$/.test(h.title) && !dir.has(h.title)) dir.set(h.title, 'on');
+  });
+  dir.delete(q);
+  var qs = Array.from(dir.keys()).slice(0, INFL_MAX);
+  if (!qs.length) return 'empty';
+  var labs = {};
+  try {
+    var le = (await wdJson('action=wbgetentities&props=labels&languages=en|fr&ids=' + qs.join('|'))).entities || {};
+    Object.keys(le).forEach(function (id) { var L = le[id].labels || {}; labs[id] = (L.en && L.en.value) || (L.fr && L.fr.value) || ''; });
+  } catch (e) { dbg('wikidata noms', e); }
+  if (!alive(n, g)) return 'stop';
+  var hits = await Promise.all(qs.map(async function (id) {
+    var dzId = await wdClaim(id, 'P2722');
+    if (/^\d+$/.test(dzId)) {
+      var known = byId.get(Number(dzId));
+      if (known) return known;
+      var a = await dzp('/artist/' + dzId).catch(function () { return null; });
+      if (a && a.id && !a.error) return a;
+    }
+    var name = labs[id];
+    if (!name || !(await wdClaim(id, 'P434'))) return null;
+    var sr = await dzp('/search/artist?q=' + encodeURIComponent(name) + '&limit=5').catch(function () { return null; });
+    return ((sr && sr.data) || []).filter(function (x) { return normName(x.name) === normName(name); })
+      .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0] || null;
+  }));
+  if (!alive(n, g)) return 'stop';
+  var added = 0;
+  held(n.id, function () {
+    hits.forEach(function (h, i) {
+      if (!h || h.id === n.id) return;
+      var m = byId.get(h.id) || ensureNode(h, n.x, n.y);
+      var by = dir.get(qs[i]) === 'by';
+      addLink(n, m, 'i', 0, { i: { rels: [{ s: by ? n.name : m.name, o: by ? m.name : n.name }] } });
+      added++;
+    });
+  });
+  syncSim();
+  return added ? 'ok' : 'nodz';
+}
+
 /* ----- Panneau de progression : un travail par artiste enrichi (le plus recent est affiche) ----- */
 var xjobs = [];
-var XSRC = [['r', 'Radio Deezer'], ['c', 'Collaborations'], ['e', 'Labels'], ['l', 'ListenBrainz'], ['p', 'Projets (MusicBrainz)']];
+var XSRC = [['r', 'Radio Deezer'], ['c', 'Collaborations'], ['e', 'Labels'], ['l', 'ListenBrainz'], ['p', 'Projets (MusicBrainz)'], ['i', 'Influences (Wikidata)']];
 function removeJob(job) {
   var i = xjobs.indexOf(job);
   if (i >= 0) xjobs.splice(i, 1);
@@ -383,6 +450,7 @@ function removeJob(job) {
 }
 function renderProg() {
   var box = el('xprog'), job = xjobs[xjobs.length - 1];
+  document.body.classList.toggle('hasprog', !!job);
   if (!job) { box.hidden = true; return; }
   box.hidden = false;
   box.textContent = '';
@@ -434,11 +502,11 @@ async function enrich(n) {
   var g = gen;
   n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.', live: true };
   n.enriching = true; startAnim();
-  var job = { id: n.id, name: n.name, st: { r: 'run', c: 'run', e: 'run', l: 'run', p: 'run' }, sum: null };
+  var job = { id: n.id, name: n.name, st: { r: 'run', c: 'run', e: 'run', l: 'run', p: 'run', i: 'run' }, sum: null };
   xjobs.push(job); renderProg();
   function mark(k, ok) { job.st[k] = ok ? 'done' : 'fail'; renderProg(); }
   if (selected === n) renderCard();
-  var collabFailed = false, lb, pj, rd, labelsUsed = [], labelFailed = false;
+  var collabFailed = false, lb, pj, rd, inf, labelsUsed = [], labelFailed = false;
   try {
     /* Les trois sources partent en meme temps ; leurs ajouts restent retenus jusqu'a la fin de la derniere. */
     await Promise.all([
@@ -446,7 +514,8 @@ async function enrich(n) {
       enrichCollab(n, g).catch(function (e) { dbg('collaborations', e); collabFailed = true; }).then(function () { mark('c', !collabFailed); }),
       enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function (e) { dbg('labels', e); labelFailed = true; }).then(function () { mark('e', !labelFailed); }),
       enrichLB(n, g).then(function (r) { lb = r; }, function (e) { dbg('listenbrainz', e); lb = 'err'; }).then(function () { mark('l', lb !== 'err'); }),
-      enrichProj(n, g).then(function (r) { pj = r; }, function (e) { dbg('musicbrainz projets', e); pj = 'err'; }).then(function () { mark('p', pj !== 'err'); })
+      enrichProj(n, g).then(function (r) { pj = r; }, function (e) { dbg('musicbrainz projets', e); pj = 'err'; }).then(function () { mark('p', pj !== 'err'); }),
+      enrichInfl(n, g).then(function (r) { inf = r; }, function (e) { dbg('wikidata influences', e); inf = 'err'; }).then(function () { mark('i', inf !== 'err'); })
     ]);
   } finally {
     n.enriching = false;
@@ -454,16 +523,17 @@ async function enrich(n) {
     if (gen !== g || !alive(n, g)) removeJob(job);
   }
   if (!alive(n, g)) return;
-  var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0, rCount = 0;
+  var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0, rCount = 0, iCount = 0;
   links.forEach(function (lk) {
     if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
     if (!lk.k) return;
-    if (/[clepr]/.test(lk.k)) anyExt++;
+    if (/[clepri]/.test(lk.k)) anyExt++;
     if (lk.k.length > 1) both++;
     if (lk.k.indexOf('c') >= 0) c++;
     if (lk.k.indexOf('l') >= 0) l++;
     if (lk.k.indexOf('p') >= 0) pCount++;
     if (lk.k.indexOf('r') >= 0) rCount++;
+    if (lk.k.indexOf('i') >= 0) iCount++;
     if (lk.k.indexOf('e') >= 0) eCount++;
   });
   /* Resume court (barre d'etat, titre du detail) et detail ligne par ligne, replie dans la fiche. */
@@ -484,6 +554,11 @@ async function enrich(n) {
     return [T('Projets (MusicBrainz)'), pj === 'nomb' ? T('artiste absent de MusicBrainz')
       : pj === 'empty' ? T('aucune relation enregistrée') : pj === 'nodz' ? T('relations sans équivalent Deezer')
       : pj === 'err' ? T('indisponible') : String(pCount)];
+  });
+  lines.push(function () {
+    return [T('Influences (Wikidata)'), inf === 'nowd' ? T('artiste absent de Wikidata')
+      : inf === 'empty' ? T('aucune influence enregistrée') : inf === 'nodz' ? T('influences sans équivalent Deezer')
+      : inf === 'err' ? T('indisponible') : String(iCount)];
   });
   if (both) lines.push(function () { return [T('Confirmés par plusieurs sources'), String(both)]; });
   n.ext.lines = lines;

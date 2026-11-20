@@ -16,7 +16,7 @@ window.addEventListener('unhandledrejection', function (e) { dbg('promesse rejet
 
 /* Cache local entre deux visites, par identifiant Deezer : fiche Wikidata (7 jours) et identifiant MusicBrainz (30 jours).
    Un seul objet dans localStorage, plafonne a 600 entrees (les plus anciennes partent) ; vide en cas de quota depasse. */
-var CACHE_KEY = 'mg-cache', CACHE_MAX = 600, CACHE_TTL = { wd: 7 * 864e5, mb: 30 * 864e5, ds2: 30 * 864e5 }, cacheObj = null, cacheTimer = null;
+var CACHE_KEY = 'mg-cache', CACHE_MAX = 600, CACHE_TTL = { wd: 7 * 864e5, mb: 30 * 864e5, ds2: 30 * 864e5, mg: 30 * 864e5, wp: 7 * 864e5 }, cacheObj = null, cacheTimer = null;
 function cacheLoad() {
   if (cacheObj) return cacheObj;
   try { cacheObj = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { dbg('cache illisible', e); cacheObj = {}; }
@@ -121,10 +121,10 @@ var sim = d3.forceSimulation(nodes)
 function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
 /* Types de liens affiches (cases de la legende) : d Deezer, c collaboration, e label, l ListenBrainz.
    Hors option « Sources etendues », tout est affiche, pour ne jamais masquer sans moyen de reafficher. */
-var kindsOn = { d: true, c: true, e: true, l: true, p: true, r: true }, kindsVer = 0, shown = null, minScore = 0;
+var kindsOn = { d: true, c: true, e: true, l: true, p: true, r: true, i: true }, kindsVer = 0, shown = null, minScore = 0;
 try {
   var savedKinds = JSON.parse(localStorage.getItem('mg-kinds') || 'null');
-  if (savedKinds) ['d', 'c', 'e', 'l', 'p', 'r'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
+  if (savedKinds) ['d', 'c', 'e', 'l', 'p', 'r', 'i'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
 } catch (e) { dbg('ignore', e); }
 try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) { dbg('ignore', e); }
 /* Sources etendues decochees : seuls les liens Deezer restent visibles (la legende est alors cachee, donc toujours affiches).
@@ -168,7 +168,7 @@ function isShown(n) { return !n.hold && (!shown || shown.has(n.id)); }
 function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
 /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
 function recomputeShown() {
-  if (extOn && kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p && kindsOn.r && minScore <= 0) { shown = null; return; }
+  if (extOn && kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p && kindsOn.r && kindsOn.i && minScore <= 0) { shown = null; return; }
   shown = new Set();
   links.forEach(function (lk) {
     if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
@@ -177,7 +177,7 @@ function recomputeShown() {
 }
 function refreshWeights() { links.forEach(function (lk) { lk.w = scoreOf(lk).score; }); }
 function updateLegend() {
-  var cnt = { d: 0, c: 0, e: 0, l: 0, p: 0, r: 0 };
+  var cnt = { d: 0, c: 0, e: 0, l: 0, p: 0, r: 0, i: 0 };
   links.forEach(function (lk) {
     var s = lk.k || 'd';
     for (var i = 0; i < s.length; i++) if (cnt[s[i]] !== undefined) cnt[s[i]]++;
@@ -264,6 +264,12 @@ function mergeEv(dst, src) {
     dst.p = dst.p || { rels: [] };
     src.p.rels.forEach(function (r) {
       if (!dst.p.rels.some(function (x) { return x.t === r.t && x.s === r.s && x.o === r.o; })) dst.p.rels.push({ t: r.t, s: r.s, o: r.o });
+    });
+  }
+  if (src.i) {
+    dst.i = dst.i || { rels: [] };
+    src.i.rels.forEach(function (r) {
+      if (!dst.i.rels.some(function (x) { return x.s === r.s && x.o === r.o; })) dst.i.rels.push({ s: r.s, o: r.o });
     });
   }
   if (src.e) {
@@ -361,6 +367,12 @@ function scoreOf(lk) {
     var pr = ev.p ? ev.p.rels : [];
     add(Math.min(0.9, 0.75 + 0.05 * Math.max(0, pr.length - 1)), 'p', T('Même artiste ou groupe (MusicBrainz)'),
       pr.slice(0, 3).map(projLine));
+  }
+  /* Influence declaree dans Wikidata (P737) : un lien artistique solide, pas forcement une ressemblance de son. */
+  if ((ev.i || k.indexOf('i') >= 0) && kOn('i')) {
+    var ir = ev.i ? ev.i.rels : [];
+    add(Math.min(0.7, 0.55 + 0.1 * Math.max(0, ir.length - 1)), 'i', T('Influence (Wikidata)'),
+      ir.slice(0, 2).map(function (r) { return T('{s} a été influencé par {o}', { s: r.s, o: r.o }); }));
   }
   if ((ev.r || k.indexOf('r') >= 0) && kOn('r')) {
     var rc = ev.r ? ev.r.count : 1;

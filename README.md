@@ -10,6 +10,7 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 
 ## Fonctions
 
+- **Accueil** : quelques artistes pour essayer, les artistes du moment sur Deezer, et un artiste au hasard par genre Deezer.
 - **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
 - **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres ouvert par défaut (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
 - **Lecteur** : un encart séparé, en bas à droite (sous la recherche sur téléphone), visible pendant toute la lecture. Photo cliquable pour rouvrir la fiche, lecture et pause, temps, barre de progression. La musique continue quand on ferme la fiche ou qu'on regarde un autre artiste (seule l'écoute au survol s'arrête).
@@ -19,9 +20,11 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 - **Repli Apple** : quand Deezer n'a aucun extrait, ceux d'Apple (iTunes) prennent le relais, avec un appariement strict sur le nom.
 - **Ouvrir ailleurs** : logos Deezer, Spotify, Apple Music, YouTube Music, Bandcamp et SoundCloud. Lien exact quand Wikidata connaît l'artiste (souligné en orange), sinon recherche sur le nom.
 - **Identité et liens (Wikidata)** : genres, pays, dates, site officiel, Instagram, Discogs, Wikipédia, pour les artistes qui ont une fiche Wikidata.
+- **Biographie (Wikipédia)** : le résumé de la page Wikipédia liée à la fiche Wikidata (jamais une recherche par nom, trop d'homonymes), dans la langue de l'interface si elle existe, avec la source et la licence CC BY-SA.
+- **Genres (MusicBrainz)** : les genres votés par la communauté MusicBrainz, à côté des styles Discogs.
 - **Score de compatibilité** de chaque lien, avec ses preuves source par source (au survol d'un lien et dans la fiche).
 - **Radio Deezer et collaborations** : toujours actives, elles complètent les artistes similaires à chaque exploration. Chaque type de lien a sa case dans la légende du groupe Sources.
-- **Sources étendues** (option expérimentale, décochée par défaut) : en plus de la radio et des collaborations, artistes du même label, voisins ListenBrainz, relations MusicBrainz (même artiste ou groupe). Les styles Discogs (Freetekno, Tribal, House...) de l'artiste et de ses voisins ajustent le score : des styles proches le renforcent, des styles sans rapport le réduisent. Les styles de l'artiste sélectionné s'affichent dans sa fiche. Un panneau montre l'avancement de chaque source, et les nouveaux artistes arrivent tous ensemble. Quand Deezer propose peu de voisins, la fiche invite à les essayer.
+- **Sources étendues** (option expérimentale, décochée par défaut) : en plus de la radio et des collaborations, artistes du même label, voisins ListenBrainz, relations MusicBrainz (même artiste ou groupe), influences Wikidata (« influencé par », dans les deux sens, retrouvées chez Deezer par leur identifiant Deezer). Les styles Discogs (Freetekno, Tribal, House...) de l'artiste et de ses voisins ajustent le score : des styles proches le renforcent, des styles sans rapport le réduisent. Les styles de l'artiste sélectionné s'affichent dans sa fiche. Un panneau montre l'avancement de chaque source (la bulle d'aide passe alors en haut pour ne pas le cacher), et les nouveaux artistes arrivent tous ensemble. Quand Deezer propose peu de voisins, la fiche invite à les essayer.
 - **Réglages** en quatre groupes : Affichage (focus, distance, score minimal, petits artistes), Écoute, Sources, Carte.
 - **Petits artistes** : estompe les artistes au-delà d'un nombre de fans, pour faire ressortir les petits.
 - **Partage** : un lien qui contient toute la carte, ou une image PNG.

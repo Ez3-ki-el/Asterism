@@ -41,7 +41,7 @@
 }
 </script>
 <title>Asterism : carte des artistes similaires (dig musical)</title>
-<link rel="stylesheet" href="style.css?v=20261120r">
+<link rel="stylesheet" href="style.css?v=20261120s">
 <script>
   (function () {
     var t = null;
@@ -119,6 +119,7 @@
         <label class="lg"><input type="checkbox" data-kind="c" checked aria-label="Collaboration"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.5 3.5"/></svg><span>Collaboration <span class="cnt" data-count="c"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="e" checked aria-label="Même label"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 3 1.5 3"/></svg><span>Même label <span class="cnt" data-count="e"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="p" checked aria-label="Même artiste ou groupe"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="10 3 2 3 2 3"/></svg><span>Même artiste ou groupe <span class="cnt" data-count="p"></span></span></label>
+        <label class="lg"><input type="checkbox" data-kind="i" checked aria-label="Influence (Wikidata)"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2 2 6"/></svg><span>Influence (Wikidata) <span class="cnt" data-count="i"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="r" checked aria-label="Radio Deezer"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="14 4"/></svg><span>Radio Deezer <span class="cnt" data-count="r"></span></span></label>
         <label class="lg"><input type="checkbox" data-kind="l" checked aria-label="ListenBrainz"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/></svg><span>ListenBrainz <span class="cnt" data-count="l"></span></span></label>
         <div class="lg"><span class="sp"></span><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
@@ -152,6 +153,10 @@
     <h1>Asterism</h1>
     <p>Asterism est une carte interactive des artistes similaires. Cherche un artiste, ouvre sa fiche, explore ses voisins et écoute un extrait de 30 secondes : chaque clic dessine un peu plus la constellation. Pour essayer :</p>
     <div class="chips" id="chips"></div>
+    <p class="hsub" id="trendh" hidden>En ce moment sur Deezer :</p>
+    <div class="chips" id="trend"></div>
+    <p class="hsub" id="genreh" hidden>Un artiste au hasard par genre :</p>
+    <div class="chips" id="genres"></div>
   </div>
 
   <div id="card" class="box" hidden>
@@ -177,7 +182,7 @@
       <button type="button" id="atour" class="link">Écouter ses voisins</button>
     </div>
     <ol id="ctracks" hidden></ol>
-    <div class="dstyles" id="cstyles" hidden title="Discogs"></div>
+    <div class="dstyles" id="cstyles" hidden></div>
     <div class="hint" id="chint"></div>
     <details id="cdisc" class="lk">
       <summary id="cdiscsum">Discographie</summary>
@@ -187,6 +192,10 @@
       <summary id="cextsum"></summary>
       <div id="cextl" class="exl"></div>
     </details>
+    <details id="cbio" class="lk" hidden>
+      <summary id="cbiosum"></summary>
+      <div id="cbiol" class="bio"></div>
+    </details>
     <details id="cwd" class="lk" hidden>
       <summary id="cwdsum"></summary>
       <div id="cwdl" class="exl"></div>
@@ -194,7 +203,7 @@
     <details id="clinks" class="lk" hidden>
       <summary id="lksum">Liens et compatibilité</summary>
       <ol id="lklist"></ol>
-      <p class="lknote">Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.</p>
+      <p class="lknote">Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, influences, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.</p>
     </details>
   </div>
 
@@ -251,13 +260,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="js/core.js?v=20261120r"></script>
-<script src="js/sources.js?v=20261120r"></script>
-<script src="js/render.js?v=20261120r"></script>
-<script src="js/actions.js?v=20261120r"></script>
-<script src="js/card.js?v=20261120r"></script>
-<script src="js/ui.js?v=20261120r"></script>
-<script src="js/i18n.js?v=20261120r"></script>
-<script src="js/boot.js?v=20261120r"></script>
+<script src="js/core.js?v=20261120s"></script>
+<script src="js/sources.js?v=20261120s"></script>
+<script src="js/render.js?v=20261120s"></script>
+<script src="js/actions.js?v=20261120s"></script>
+<script src="js/card.js?v=20261120s"></script>
+<script src="js/ui.js?v=20261120s"></script>
+<script src="js/i18n.js?v=20261120s"></script>
+<script src="js/boot.js?v=20261120s"></script>
 </body>
 </html>

@@ -124,7 +124,7 @@ async function decodeShare(str) {
   p.l.slice(0, 6000).forEach(function (l) {
     if (!Array.isArray(l)) return;
     var a = ids[l[0]], b = ids[l[1]];
-    if (!a || !b || a === b || typeof l[2] !== 'string' || !/^[dlcepr]{1,6}$/.test(l[2])) return;
+    if (!a || !b || a === b || typeof l[2] !== 'string' || !/^[dlcepri]{1,7}$/.test(l[2])) return;
     linksOk.push([a, b, l[2], 0, cleanEv(l[3])]);
   });
   var root = nodesOk.filter(function (n) { return n.root; })[0];
@@ -152,6 +152,10 @@ function cleanEv(ev) {
   if (ev.p && Array.isArray(ev.p.rels)) {
     out.p = { rels: ev.p.rels.slice(0, 5).filter(function (r) { return r && typeof r.t === 'string'; })
       .map(function (r) { return { t: r.t.slice(0, 30), s: String(r.s).slice(0, 120), o: String(r.o).slice(0, 120) }; }) };
+  }
+  if (ev.i && Array.isArray(ev.i.rels)) {
+    out.i = { rels: ev.i.rels.slice(0, 5).filter(function (r) { return r && r.s && r.o; })
+      .map(function (r) { return { s: String(r.s).slice(0, 120), o: String(r.o).slice(0, 120) }; }) };
   }
   return Object.keys(out).length ? out : null;
 }

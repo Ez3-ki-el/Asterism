@@ -284,6 +284,37 @@ window.addEventListener('resize', resize);
   document.getElementById('chips').appendChild(b);
 })();
 
+/* Page d'accueil : artistes du moment (classement Deezer) et un artiste au hasard par genre Deezer. */
+function homeChip(label, box, fn) {
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'link'; b.textContent = label;
+  b.addEventListener('click', function () { fn(b); });
+  el(box).appendChild(b);
+}
+async function randomOfGenre(gid, btn) {
+  btn.disabled = true;
+  try {
+    var r = await dz('/genre/' + gid + '/artists');
+    var list = (r && r.data) || [];
+    if (!list.length) throw new Error(T('aucun artiste trouvé, réessaie'));
+    addRoot(list[Math.floor(Math.random() * list.length)]);
+  } catch (e) {
+    toast(T('Erreur Deezer : {m}', { m: T(e.message) }));
+  } finally { btn.disabled = false; }
+}
+dz('/chart/0/artists?limit=8').then(function (r) {
+  var list = ((r && r.data) || []).filter(function (a) { return a && a.id && a.name; });
+  if (!list.length) return;
+  list.forEach(function (a) { homeChip(a.name, 'trend', function () { addRoot(a); }); });
+  el('trendh').hidden = false;
+}, function (e) { dbg('classement deezer', e); });
+dz('/genre').then(function (r) {
+  var list = ((r && r.data) || []).filter(function (x) { return x && x.id > 0 && x.name && !/livre|audio ?book|enfant|kid|film|jeu|game|podcast/i.test(x.name); }).slice(0, 14);
+  if (!list.length) return;
+  list.forEach(function (x) { homeChip(x.name, 'genres', function (b) { randomOfGenre(x.id, b); }); });
+  el('genreh').hidden = false;
+}, function (e) { dbg('genres deezer', e); });
+
 var themeBtn = document.getElementById('theme');
 function themeLabel() {
   var txt = document.documentElement.getAttribute('data-theme') === 'dark' ? T('Mode clair') : T('Mode sombre');

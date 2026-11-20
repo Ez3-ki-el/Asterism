@@ -39,7 +39,7 @@ EN = {
   '{n} masqués': '{n} hidden', '{n} masqué': '{n} hidden',
   /* fiche */
   'Fermer': 'Close', 'Réduire ou agrandir la fiche': 'Collapse or expand the card',
-  'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.': 'The score combines the evidence from each source (Deezer, Deezer radio, ListenBrainz, collaboration, label, projects, Discogs styles): the more they agree, the higher it climbs. A link backed by a single source stays modest.',
+  'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, influences, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.': 'The score combines the evidence from each source (Deezer, Deezer radio, ListenBrainz, collaboration, label, projects, influences, Discogs styles): the more they agree, the higher it climbs. A link backed by a single source stays modest.',
   '{n} fans': '{n} fans', '{n} liens': '{n} links', '{n} lien': '{n} link',
   '{vc} liens affichés sur {n}': '{vc} of {n} links shown',
   'Chargement': 'Loading', 'Exploré': 'Explored', 'Explorer': 'Explore', 'Écouter': 'Listen',
@@ -146,7 +146,13 @@ EN = {
   'Identité et liens (Wikidata)': 'Identity and links (Wikidata)',
   'Genres': 'Genres', 'Pays': 'Country', 'Naissance': 'Born', 'Formé en': 'Formed in', 'Décès': 'Died',
   'Site officiel': 'Official website', 'Wikipédia': 'Wikipedia',
-  '{label} : fiche de l’artiste (lien exact)': '{label}: artist page (exact link)'
+  '{label} : fiche de l’artiste (lien exact)': '{label}: artist page (exact link)',
+  'Influences (Wikidata)': 'Influences (Wikidata)', 'Influence (Wikidata)': 'Influence (Wikidata)',
+  '{s} a été influencé par {o}': '{s} was influenced by {o}', 'artiste absent de Wikidata': 'artist not on Wikidata',
+  'aucune influence enregistrée': 'no influence recorded', 'influences sans équivalent Deezer': 'influences not found on Deezer',
+  'Genres (MusicBrainz)': 'Genres (MusicBrainz)', 'Biographie (Wikipédia)': 'Biography (Wikipedia)',
+  'Source : Wikipédia, licence CC BY-SA': 'Source: Wikipedia, CC BY-SA licence',
+  'En ce moment sur Deezer :': 'Trending on Deezer:', 'Un artiste au hasard par genre :': 'A random artist by genre:'
 };
 
 /* Traduit le texte et les attributs du HTML statique ; l'original francais est memorise sur chaque noeud pour revenir en arriere.
@@ -181,7 +187,7 @@ function langLabel() {
   el('lang').setAttribute('title', T('Langue'));
   el('lang2').textContent = LANG === 'fr' ? 'English' : 'Français';
 }
-var CARD_NOTE_FR = 'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.';
+var CARD_NOTE_FR = 'Le score combine les preuves de chaque source (Deezer, radio Deezer, ListenBrainz, collaboration, label, projets, influences, styles Discogs) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.';
 function applyLang() {
   document.documentElement.lang = LANG;
   document.title = T('Asterism : carte des artistes similaires (dig musical)');

@@ -82,6 +82,7 @@ function draw() {
     ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
       : ek === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k]
       : ek === 'p' ? [10 / k, 3 / k, 2 / k, 3 / k, 2 / k, 3 / k]
+      : ek === 'i' ? [2 / k, 2 / k, 2 / k, 6 / k]
       : ek === 'r' ? [14 / k, 4 / k] : [5 / k, 4 / k]));
     ctx.stroke();
   }

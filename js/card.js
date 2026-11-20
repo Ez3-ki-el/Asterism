@@ -92,6 +92,7 @@ function renderCard() {
   renderLinks(n);
   renderOut(n);
   renderWd(n);
+  renderBio(n);
   renderMarks(n);
   renderStyles(n);
   renderDisc(n);
@@ -271,6 +272,55 @@ function renderWd(n) {
   xl.appendChild(wl);
 }
 
+/* Biographie : resume de la page Wikipedia liee a la fiche Wikidata (jamais une recherche par nom, trop d'homonymes).
+   Langue de l'interface si la page existe, sinon l'autre. Licence CC BY-SA : source citee avec un lien. */
+function bioLang(w) { return LANG === 'en' ? (w.wiki.en ? 'en' : 'fr') : (w.wiki.fr ? 'fr' : 'en'); }
+function ensureBio(n) {
+  var w = n.wd;
+  if (!w || !w.wiki) return Promise.resolve(null);
+  var lg = bioLang(w), title = w.wiki[lg], key = lg + n.id;
+  if (n.bioKey === key) return Promise.resolve(n.bio);
+  if (!title) { n.bio = null; n.bioKey = key; return Promise.resolve(null); }
+  var c = cacheGet('wp', key);
+  if (c !== undefined) { n.bio = c; n.bioKey = key; return Promise.resolve(c); }
+  if (n.bioP && n.bioPKey === key) return n.bioP;
+  n.bioPKey = key;
+  n.bioP = fetch('https://' + lg + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title.replace(/ /g, '_'))).then(function (r) {
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error('Wikipedia ' + r.status);
+    return r.json();
+  }).then(function (d) {
+    var u = d && d.content_urls && d.content_urls.desktop && d.content_urls.desktop.page;
+    var b = d && d.type === 'standard' && d.extract ? { t: String(d.extract), u: /^https:\/\/(fr|en)\.wikipedia\.org\//.test(u || '') ? u : '', l: lg } : null;
+    n.bio = b; n.bioKey = key; n.bioP = null; cacheSet('wp', key, b);
+    return b;
+  }, function (e) { dbg('wikipedia', e); n.bioP = null; n.bioErr = key; return undefined; });
+  return n.bioP;
+}
+function renderBio(n) {
+  var box = el('cbio'), w = n.wd;
+  if (!w || !w.wiki || !(w.wiki.fr || w.wiki.en)) { box.hidden = true; return; }
+  var key = bioLang(w) + n.id;
+  if (n.bioKey !== key) {
+    box.hidden = true;
+    if (n.bioErr !== key) ensureBio(n).then(function (b) { if (b && selected === n) renderCard(); });
+    return;
+  }
+  var b = n.bio;
+  box.hidden = !b;
+  if (!b) return;
+  el('cbiosum').textContent = T('Biographie (Wikipédia)');
+  var bl = el('cbiol');
+  bl.textContent = '';
+  var p = document.createElement('p'); p.textContent = b.t;
+  var src = document.createElement('div'); src.className = 'src';
+  var a = document.createElement('a');
+  a.href = b.u || ('https://' + b.l + '.wikipedia.org/'); a.target = '_blank'; a.rel = 'noopener noreferrer';
+  a.textContent = T('Source : Wikipédia, licence CC BY-SA');
+  src.appendChild(a);
+  bl.append(p, src);
+}
+
 function renderOut(n) {
   var box = el('coutl'), q = encodeURIComponent(n.name), NS = 'http://www.w3.org/2000/svg';
   box.textContent = '';
@@ -297,7 +347,7 @@ function renderOut(n) {
 }
 
 /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
-var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3', p: '10 3 2 3 2 3', r: '14 4', s: '1 2' };
+var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3', p: '10 3 2 3 2 3', r: '14 4', i: '2 2 2 6', s: '1 2' };
 function sampleSvg(src) {
   return '<svg viewBox="0 0 24 6" aria-hidden="true"><line x1="1" y1="3" x2="23" y2="3" stroke="currentColor" stroke-width="1.3"'
     + (DASH[src] ? ' stroke-dasharray="' + DASH[src] + '"' : ' stroke-opacity="0.5"') + '/></svg>';
@@ -414,7 +464,25 @@ function styleRefreshSoon() {
   clearTimeout(styleTimer);
   styleTimer = setTimeout(function () { refreshWeights(); recomputeShown(); updateLegend(); renderCard(); draw(); }, 700);
 }
+/* Genres MusicBrainz (votes de la communaute), second avis a cote des styles Discogs. n.mg : liste, null = rien. */
+function ensureMbGenres(n) {
+  if (n.mg !== undefined) return Promise.resolve(n.mg);
+  var c = cacheGet('mg', n.id);
+  if (c !== undefined) { n.mg = c; return Promise.resolve(c); }
+  if (n.mgP) return n.mgP;
+  n.mgP = ensureMbid(n).then(function (id) {
+    if (!id) return null;
+    return mbJson('https://musicbrainz.org/ws/2/artist/' + id + '?inc=genres&fmt=json').then(function (d) {
+      var gl = ((d && d.genres) || []).filter(function (x) { return (x.count || 0) > 0; })
+        .sort(function (a, b) { return (b.count || 0) - (a.count || 0); }).slice(0, 5).map(function (x) { return x.name; });
+      return gl.length ? gl : null;
+    });
+  }).then(function (gl) { n.mg = gl; n.mgP = null; cacheSet('mg', n.id, gl); return gl; },
+          function (e) { dbg('musicbrainz genres', e); n.mgP = null; return undefined; });
+  return n.mgP;
+}
 function loadStylesFor(n) {
+  ensureMbGenres(n).then(function (gl) { if (gl && selected === n) renderCard(); });
   ensureStyles(n).then(function () { if (selected === n) { renderCard(); if (extOn) styleRefreshSoon(); } });
   if (!extOn) return;
   neighboursByScore(n).slice(0, 20).forEach(function (m) {
@@ -422,12 +490,17 @@ function loadStylesFor(n) {
   });
 }
 function renderStyles(n) {
-  var box = el('cstyles'), top = n.ds ? topStyles(n.ds, 5) : [];
-  box.hidden = !top.length;
-  if (!top.length) return;
+  var box = el('cstyles'), top = n.ds ? topStyles(n.ds, 5) : [], mg = n.mg || [];
+  box.hidden = !top.length && !mg.length;
+  if (box.hidden) return;
   box.textContent = '';
-  var b = document.createElement('b'); b.textContent = T('Styles (Discogs)') + (LANG === 'en' ? ': ' : ' : ');
-  box.append(b, top.join(' · '));
+  function line(label, list) {
+    var d = document.createElement('div'), b = document.createElement('b');
+    b.textContent = label + (LANG === 'en' ? ': ' : ' : ');
+    d.append(b, list.join(' · ')); box.appendChild(d);
+  }
+  if (top.length) line(T('Styles (Discogs)'), top);
+  if (mg.length) line(T('Genres (MusicBrainz)'), mg);
 }
 
 /* ---------- Ecouter la carte : l'artiste puis ses voisins, du plus compatible au moins compatible ---------- */
