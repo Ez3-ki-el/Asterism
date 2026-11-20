@@ -407,6 +407,28 @@ function renderProg() {
   box.append(h, bar, ul, foot);
 }
 
+/* Enrichissement leger, a chaque exploration quand les sources etendues sont decochees : radio Deezer et collaborations,
+   deux requetes a l'API Deezer, fiables. Les nouveaux artistes arrivent ensemble, comme pour les sources etendues. */
+async function enrichLight(n) {
+  if (n.lightDone || n.ext) return;
+  var g = gen;
+  n.lightDone = true;
+  n.enriching = true; startAnim();
+  try {
+    await Promise.all([
+      enrichRadio(n, g).catch(function (e) { dbg('radio deezer', e); }),
+      enrichCollab(n, g).catch(function (e) { dbg('collaborations', e); })
+    ]);
+  } finally {
+    n.enriching = false;
+    if (gen === g) releaseHold(n.id);
+  }
+  if (!alive(n, g)) return;
+  refresh();
+  sim.alpha(0.5).restart();
+  if (selected === n) renderCard();
+}
+
 async function enrich(n) {
   if (!extOn) return;
   var g = gen;

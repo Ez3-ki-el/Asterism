@@ -255,6 +255,8 @@ body.hasplayer #xprog { bottom: 110px; }
 #panel .lg { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
 #panel label.lg { cursor: pointer; }
 #panel .lg.zero { opacity: 0.55; }
+#panel .lg.dis { opacity: 0.35; }
+#panel .lg.dis input { cursor: default; }
 #panel .lg .sp { width: 11px; flex: none; }
 #panel .lg .cnt { color: var(--muted); }
 #panel .lgnote { margin-top: 8px; color: var(--muted); font-size: 10.5px; line-height: 1.4; }

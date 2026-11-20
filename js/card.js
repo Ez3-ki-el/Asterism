@@ -873,13 +873,23 @@ el('sound').addEventListener('change', function (e) {
   else if (hoverPlay && hovered) hoverStart(hovered);
 });
 el('extopt').checked = extOn;
-el('extlegend').hidden = !extOn;
+/* La legende reste visible : Deezer, radio et collaborations sont toujours actifs ; les types reserves aux sources
+   etendues (labels, ListenBrainz, MusicBrainz) sont grises tant que l'option est decochee. */
+function updateLegendState() {
+  el('extlegend').hidden = false;
+  document.querySelectorAll('#extlegend input[data-kind]').forEach(function (inp) {
+    var dis = !extOn && ALWAYS_KINDS.indexOf(inp.getAttribute('data-kind')) < 0;
+    inp.disabled = dis;
+    inp.closest('.lg').classList.toggle('dis', dis);
+  });
+}
+updateLegendState();
 /* Active ou desactive les sources etendues (case des reglages, ou bouton « Essayer » de la fiche). */
 function setExt(on) {
   extOn = on;
   updateNudge();
   el('extopt').checked = on;
-  el('extlegend').hidden = !on;
+  updateLegendState();
   try { localStorage.setItem('mg-ext', on ? '1' : '0'); } catch (err) { dbg('ignore', err); }
   applyKinds();
   if (!on) refresh();   /* efface le message « N liens ajoutes » devenu faux */

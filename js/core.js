@@ -129,7 +129,10 @@ try {
 try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) { dbg('ignore', e); }
 /* Sources etendues decochees : seuls les liens Deezer restent visibles (la legende est alors cachee, donc toujours affiches).
    Sources etendues cochees : chaque type, Deezer compris, suit sa case dans la legende. */
-function kOn(c) { return c === 'd' ? (!extOn || kindsOn.d) : (extOn && kindsOn[c]); }
+/* Toujours actifs : Deezer (d), radio Deezer (r) et collaborations (c), chacun suivant sa case de la legende.
+   Les autres types (labels, ListenBrainz, MusicBrainz) n'apparaissent qu'avec les sources etendues cochees. */
+var ALWAYS_KINDS = 'drc';
+function kOn(c) { return ALWAYS_KINDS.indexOf(c) >= 0 ? !!kindsOn[c] : (extOn && !!kindsOn[c]); }
 /* Nombre de voisins Deezer d'un artiste (liens de type d), quelle que soit la visibilite des autres types. */
 function dDeg(n) {
   var c = 0;
@@ -440,7 +443,7 @@ async function expand(n, silent) {
     });
     n.expanded = true;
     refresh();
-    enrich(n);
+    if (extOn) enrich(n); else enrichLight(n);
     if (!list.length) toast(T('Aucun artiste lié pour {name}', { name: n.name }));
   } catch (e) {
     toast(T('Erreur Deezer : {m}', { m: T(e.message) }));

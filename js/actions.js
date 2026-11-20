@@ -37,7 +37,7 @@ function restore(s) {
   s.nodes.forEach(function (d) {
     var n = old.get(d.id);
     if (n) {
-      n.deg = 0; n.ext = undefined; n.hold = 0; n.born = 0; n.flash = 0; n.enriching = false;
+      n.deg = 0; n.ext = undefined; n.lightDone = false; n.hold = 0; n.born = 0; n.flash = 0; n.enriching = false;
       nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
     } else {
       n = ensureNode({ id: d.id, name: d.name, picture_medium: d.pic, nb_fan: d.fans }, d.x, d.y);
