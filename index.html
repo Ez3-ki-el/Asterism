@@ -349,6 +349,9 @@
         <input id="minscore" type="range" min="0" max="100" step="5" value="0" aria-label="Score d'affinité minimal">
       </label>
       <div class="ticks" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+      <label>Titres du top <span class="v" id="topv">5</span>
+        <input id="topn" type="range" min="3" max="10" step="1" value="5" aria-label="Nombre de titres affichés dans le top">
+      </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
       <div class="legend" id="extlegend" hidden>
@@ -712,6 +715,9 @@
   /* ---------- Sources etendues (experimental) : collaborations Deezer + ListenBrainz ---------- */
   var gen = 0;                       /* change quand le graphe est remplace : annule les travaux en vol */
   var extOn = false;
+  /* Nombre de titres affiches dans le top (3 a 10) ; on en charge toujours TOP_MAX pour changer sans nouvelle requete. */
+  var TOP_MAX = 10, topN = 5;
+  try { topN = Math.max(3, Math.min(TOP_MAX, parseInt(localStorage.getItem('mg-top'), 10) || 5)); } catch (e) {}
   try { extOn = localStorage.getItem('mg-ext') === '1'; } catch (e) {}
   var LB_ALGO = 'session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30';
   var mbNext = 0;                    /* MusicBrainz : 1 requete par seconde au maximum */
@@ -1592,7 +1598,7 @@
       { label: 'Explorer', disabled: n.expanded || n.loading, run: function () { expand(n); renderCard(); } },
       { label: (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter',
         run: function () { if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0); } },
-      { label: 'Top 5 titres',
+      { label: 'Top ' + topN + ' titres',
         run: function () { n.showTop = true; loadTracks(n).then(function () { if (selected === n) renderCard(); }); } },
       { label: focusDepth > 0 ? 'Quitter le focus' : 'Focus sur ce nœud',
         run: function () {
@@ -1745,7 +1751,7 @@
     ex.disabled = n.loading || n.expanded;
     el('alisten').textContent = (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter';
     var narrow = window.matchMedia('(max-width: 640px)').matches;
-    el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top 5' : 'Top 5 titres');
+    el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top ' + topN : 'Top ' + topN + ' titres');
     renderTracks(n);
     renderLinks(n);
     renderOut(n);
@@ -1876,7 +1882,7 @@
     ol.textContent = '';
     ol.hidden = !(n.showTop && n.tracks);
     if (ol.hidden) return;
-    n.tracks.forEach(function (t, i) {
+    n.tracks.slice(0, topN).forEach(function (t, i) {
       var li = document.createElement('li');
       var on = playing && playing.id === n.id && playing.idx === i;
       if (on) li.className = 'on';
@@ -1919,7 +1925,7 @@
     (d.results || []).forEach(function (r) {
       if (!r.previewUrl || strictName(r.artistName) !== want) return;
       var key = strictName(r.trackName);
-      if (seen.has(key) || list.length >= 5) return;
+      if (seen.has(key) || list.length >= TOP_MAX) return;
       seen.add(key);
       list.push({ title: r.trackName, url: r.previewUrl });
     });
@@ -1929,7 +1935,7 @@
     if (n.tracks !== undefined) return n.tracks;
     var list;
     try {
-      var d = await dz('/artist/' + n.id + '/top?limit=5');
+      var d = await dz('/artist/' + n.id + '/top?limit=' + TOP_MAX);
       list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
     } catch (e) {
       setStatus('Erreur Deezer : ' + e.message);
@@ -2050,6 +2056,13 @@
   });
 
   /* Jauge de score minimal : masque les liens dont le score est inferieur au seuil. */
+  el('topn').value = topN; el('topv').textContent = topN;
+  el('topn').addEventListener('input', function (e) {
+    topN = +e.target.value;
+    el('topv').textContent = topN;
+    try { localStorage.setItem('mg-top', String(topN)); } catch (err) {}
+    renderCard();
+  });
   el('minscore').value = Math.round(minScore * 100);
   el('minscore').addEventListener('input', function (e) {
     minScore = (+e.target.value) / 100;
