@@ -374,6 +374,10 @@
         <button id="fit" type="button">Recentrer</button>
         <button id="clear" type="button">Tout effacer</button>
       </div>
+      <div class="row">
+        <button id="share" type="button">Copier le lien</button>
+        <button id="png" type="button">Image PNG</button>
+      </div>
       <div class="row only-narrow">
         <button id="theme2" type="button">Mode sombre</button>
       </div>
@@ -597,6 +601,12 @@
     n.imgOk = false;
     n.img = new Image();
     n.img.onload = function () { n.imgOk = true; draw(); };
+    /* CORS anonyme (le CDN de Deezer l'autorise) : sans cela le canevas serait « teinte » et l'export en image impossible.
+       Si l'image refuse, on la recharge sans CORS : elle s'affiche, seul l'export sera limite. */
+    n.img.crossOrigin = 'anonymous';
+    n.img.onerror = function () {
+      if (n.img.crossOrigin) { n.img.removeAttribute('crossorigin'); n.img.src = n.pic; n.corsOff = true; }
+    };
     if (n.pic) n.img.src = n.pic;
     nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
     return n;
@@ -1611,6 +1621,113 @@
     draw();
   }
 
+  /* ---------- Partage : lien (carte compressee dans l'adresse) et image PNG ---------- */
+  var SHARE_BASE = 'https://ez3-ki-el.github.io/Asterism/', DZ_IMG = 'https://cdn-images.dzcdn.net/images/artist/';
+  function b64u(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function unb64u(str) {
+    var bin = atob(str.replace(/-/g, '+').replace(/_/g, '/')), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function pipeBytes(bytes, stream) {
+    var r = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await r.arrayBuffer());
+  }
+  /* Etat minimal : artistes (identifiant, nom, fans, position, drapeaux, empreinte de l'image Deezer) et liens avec preuves. */
+  function sharePayload() {
+    var idx = new Map();
+    var ns = nodes.map(function (n, i) {
+      idx.set(n.id, i);
+      var m = /\/artist\/([0-9a-f]{32})\//.exec(n.pic || '');
+      return [n.id, n.name, typeof n.fans === 'number' ? n.fans : null, Math.round(n.x), Math.round(n.y),
+        (n.root ? 1 : 0) | (n.expanded ? 2 : 0), m ? m[1] : ''];
+    });
+    var ls = [];
+    links.forEach(function (l) {
+      if (l.hold) return;
+      var a = idx.get(idOf(l.source)), b = idx.get(idOf(l.target));
+      if (a === undefined || b === undefined) return;
+      ls.push([a, b, l.k || 'd', l.ev || 0]);
+    });
+    return { v: 1, n: ns, l: ls };
+  }
+  async function encodeShare() {
+    var json = new TextEncoder().encode(JSON.stringify(sharePayload()));
+    if (typeof CompressionStream === 'function') return 'z.' + b64u(await pipeBytes(json, new CompressionStream('deflate-raw')));
+    return 'u.' + b64u(json);
+  }
+  async function decodeShare(str) {
+    var raw = unb64u(str.slice(2));
+    if (str.charAt(0) === 'z') raw = await pipeBytes(raw, new DecompressionStream('deflate-raw'));
+    var p = JSON.parse(new TextDecoder().decode(raw));
+    if (!p || p.v !== 1 || !Array.isArray(p.n) || !Array.isArray(p.l)) throw new Error('format');
+    var ids = p.n.map(function (a) { return a[0]; });
+    return {
+      nodes: p.n.map(function (a) {
+        return { id: a[0], name: a[1], fans: a[2] == null ? undefined : a[2], x: a[3], y: a[4], root: !!(a[5] & 1), expanded: !!(a[5] & 2),
+          pinned: false, pic: a[6] ? DZ_IMG + a[6] + '/250x250-000000-80-0-0.jpg' : '' };
+      }),
+      links: p.l.map(function (l) { return [ids[l[0]], ids[l[1]], l[2], 0, l[3] || null]; }),
+      selectedId: (p.n.filter(function (a) { return a[5] & 1; })[0] || [null])[0]
+    };
+  }
+  async function loadShared(str) {
+    try {
+      var snap = await decodeShare(str);
+      restore(snap);
+      setStatus(T('Carte partagée chargée : {n} artistes', { n: snap.nodes.length }));
+      setTimeout(fit, 700);
+    } catch (e) {
+      setStatus(T('Lien de partage illisible'));
+    }
+  }
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? resolve() : reject(new Error('copie')); } catch (e) { reject(e); } finally { ta.remove(); }
+    });
+  }
+  el('share').addEventListener('click', async function () {
+    if (!nodes.length) { setStatus(T('Rien à partager : la carte est vide')); return; }
+    try {
+      var base = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : SHARE_BASE;
+      var url = base + '#s=' + await encodeShare();
+      if (url.length > 60000) { setStatus(T('Carte trop grande pour un lien : utilise l’image PNG')); return; }
+      try { await copyText(url); setStatus(T('Lien copié : {n} artistes, {k} liens', { n: nodes.length, k: links.length })); }
+      catch (e) { window.prompt(T('Copie ce lien :'), url); }
+    } catch (e) { setStatus(T('Partage impossible : {m}', { m: e.message })); }
+  });
+  el('png').addEventListener('click', function () {
+    if (!nodes.length) { setStatus(T('Rien à exporter : la carte est vide')); return; }
+    draw();
+    var out = document.createElement('canvas');
+    out.width = canvas.width; out.height = canvas.height;
+    var c2 = out.getContext('2d'), sc = out.width / Math.max(1, W);
+    c2.fillStyle = C.bg; c2.fillRect(0, 0, out.width, out.height);
+    c2.drawImage(canvas, 0, 0);
+    var roots = nodes.filter(function (n) { return n.root; }).map(function (n) { return n.name; }).slice(0, 3);
+    c2.font = (12 * sc) + 'px ' + C.mono; c2.textBaseline = 'bottom'; c2.fillStyle = C.ink; c2.globalAlpha = 0.65;
+    c2.fillText('Asterism' + (roots.length ? '  ·  ' + roots.join(', ') : '') + '  ·  ez3-ki-el.github.io/Asterism', 14 * sc, out.height - 12 * sc);
+    try {
+      out.toBlob(function (blob) {
+        if (!blob) { setStatus(T('Export impossible')); return; }
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'asterism' + (roots[0] ? '-' + normName(roots[0]).replace(/\s+/g, '-') : '') + '.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        setStatus(T('Image enregistrée'));
+      }, 'image/png');
+    } catch (e) { setStatus(T('Export impossible : images protégées par le navigateur')); }
+  });
+
   function historyUI() {
     el('undo').disabled = !undoStack.length;
     el('redo').disabled = !redoStack.length;
@@ -2420,7 +2537,8 @@
 
   resize();
   refresh();
-  if (location.hash.length > 1) searchAndAdd(decodeURIComponent(location.hash.slice(1)));
+  if (/^#s=[uz]\./.test(location.hash)) loadShared(location.hash.slice(3));
+  else if (location.hash.length > 1) searchAndAdd(decodeURIComponent(location.hash.slice(1)));
 })();
 </script>
 </body>
