@@ -177,6 +177,28 @@
   #card li.off:hover .t { color: inherit; }
   #card .hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
   #card .hint:empty { display: none; }
+  #card .lk { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
+  #card .lk[hidden] { display: none; }
+  #card .lk summary { cursor: pointer; list-style: none; color: var(--muted); font-size: 11px; padding: 4px 0; }
+  #card .lk summary::-webkit-details-marker { display: none; }
+  #card .lk summary::before { content: "+ "; }
+  #card .lk[open] summary::before { content: "\2212 "; }
+  #card .lk ol { list-style: none; margin: 2px 0 0; padding: 0; }
+  #card .lk li { display: block; padding: 6px 0; border-top: 1px solid var(--line); cursor: pointer; }
+  #card .lk .pt { display: flex; align-items: center; gap: 6px; }
+  #card .lk .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
+  #panel .lg { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  #panel .lg svg { width: 40px; height: 8px; flex: none; color: var(--ink); }
+  #card .lk li.more { cursor: default; color: var(--muted); font-size: 10.5px; }
+  #card .lk li:hover .nm { color: var(--accent); }
+  #card .lk .r1 { display: flex; gap: 8px; align-items: baseline; font-size: 11px; }
+  #card .lk .pct { width: 3.4em; flex: none; color: var(--accent); font-variant-numeric: tabular-nums; }
+  #card .lk .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #card .lk .sbar { height: 2px; background: var(--line); margin: 3px 0 3px 3.4em; }
+  #card .lk .sbar i { display: block; height: 100%; background: var(--accent); }
+  #card .lk .why { margin-left: 3.4em; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+  #card .lk .lknote { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
+  #card.min .lk { display: none; }
 
   #menu { position: absolute; z-index: 20; min-width: 210px; margin: 0; padding: 4px 0; list-style: none;
     border-color: var(--ink); }
@@ -289,7 +311,13 @@
       </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
-      <div class="legend" id="extlegend" hidden>Pointillé fin : collaboration. Tiret-point : même label. Tirets : ListenBrainz. Trait épais : confirmé par plusieurs sources.</div>
+      <div class="legend" id="extlegend" hidden>
+        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/></svg><span>Artistes similaires (Deezer)</span></div>
+        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.5 3.5"/></svg><span>Collaboration</span></div>
+        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 3 1.5 3"/></svg><span>Même label</span></div>
+        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/></svg><span>ListenBrainz</span></div>
+        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
+      </div>
       <div class="row">
         <button id="undo" type="button" disabled>Annuler</button>
         <button id="redo" type="button" disabled>Rétablir</button>
@@ -332,6 +360,11 @@
     </div>
     <ol id="ctracks" hidden></ol>
     <div class="hint" id="chint"></div>
+    <details id="clinks" class="lk" hidden>
+      <summary id="lksum">Liens et compatibilité</summary>
+      <ol id="lklist"></ol>
+      <p class="lknote">Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.</p>
+    </details>
   </div>
 
   <div id="status"></div>
@@ -430,17 +463,74 @@
 
   /* kind : 'd' similaires Deezer, 'l' ListenBrainz, 'c' collaboration ; w : poids de 0 a 1.
      Un lien confirme par plusieurs sources cumule les lettres (ex. 'dl'). */
-  function addLink(a, b, kind, w) {
+  /* Preuves d'un lien (ev) : d.from = rang chez Deezer selon l'artiste qui l'a explore ; l = score ListenBrainz ;
+     c = titres en commun ; e = labels, ressemblance des genres, style MusicBrainz, taille du label. */
+  function mergeEv(dst, src) {
+    if (!src) return dst;
+    dst = dst || {};
+    if (src.d) {
+      dst.d = dst.d || { from: {} };
+      Object.keys(src.d.from).forEach(function (id) { dst.d.from[id] = src.d.from[id]; });
+    }
+    if (src.l && (!dst.l || src.l.score / src.l.top > dst.l.score / dst.l.top)) {
+      dst.l = { score: src.l.score, top: src.l.top, rank: src.l.rank };
+    }
+    if (src.c && (!dst.c || src.c.count > dst.c.count)) dst.c = { count: src.c.count };
+    if (src.e) {
+      dst.e = dst.e || { labels: [], cos: 0, match: false, size: 0 };
+      src.e.labels.forEach(function (x) { if (dst.e.labels.indexOf(x) < 0) dst.e.labels.push(x); });
+      dst.e.cos = Math.max(dst.e.cos, src.e.cos);
+      dst.e.match = dst.e.match || src.e.match;
+      dst.e.size = Math.max(dst.e.size, src.e.size);
+    }
+    return dst;
+  }
+
+  /* Score de compatibilite (0 a 1). Chaque source donne sa preuve avec sa propre confiance, puis on
+     combine par "au moins une source a raison" : 1 - produit des (1 - confiance). Un lien porte par
+     une seule source reste donc modeste, et le score monte quand les sources concordent. */
+  function scoreOf(lk) {
+    var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1;
+    function add(s, src, text) { parts.push({ src: src, s: s, text: text }); prod *= (1 - s); }
+    if (ev.d || k.indexOf('d') >= 0) {
+      var ranks = ev.d ? Object.keys(ev.d.from).map(function (id) { return ev.d.from[id]; }) : [];
+      var best = ranks.length ? Math.min.apply(null, ranks) : 10, recip = ranks.length > 1;
+      var sd = 0.35 + 0.5 * (1 - (best - 1) / 19);
+      if (recip) sd = Math.min(0.95, sd + 0.1);
+      add(sd, 'd', 'Deezer : rang ' + best + ' sur 20' + (recip ? ', lien réciproque' : ''));
+    }
+    if (ev.l || k.indexOf('l') >= 0) {
+      var rel = ev.l ? ev.l.score / ev.l.top : 0.5;
+      add(0.3 + 0.6 * rel, 'l', 'ListenBrainz : ' + Math.round(rel * 100) + ' % du meilleur voisin'
+        + (ev.l && ev.l.rank ? ' (rang ' + ev.l.rank + ')' : ''));
+    }
+    if (ev.c || k.indexOf('c') >= 0) {
+      var cnt = ev.c ? ev.c.count : 1;
+      add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration : ' + cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun');
+    }
+    if (ev.e || k.indexOf('e') >= 0) {
+      var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
+      var se = 0.15 + 0.25 * e.cos + (e.match ? 0.2 : 0);
+      if (e.size >= 40) se *= 0.8;
+      add(se, 'e', 'Label ' + (e.labels.join(', ') || '?') + ' : genres comparables à ' + Math.round(e.cos * 100) + ' %'
+        + (e.match ? ', même style (MusicBrainz)' : ''));
+    }
+    return { score: 1 - prod, parts: parts };
+  }
+
+  function addLink(a, b, kind, w, ev) {
     if (a === b) return null;
-    kind = kind || 'd'; w = w || 0;
+    kind = kind || 'd';
     var key = a.id < b.id ? a.id + '-' + b.id : b.id + '-' + a.id;
     var ex = linkKeys.get(key);
     if (ex) {
       if (ex.k.indexOf(kind) < 0) ex.k += kind;
-      if (w > ex.w) ex.w = w;
+      ex.ev = mergeEv(ex.ev, ev);
+      ex.w = scoreOf(ex).score;
       return ex;
     }
-    var lk = { source: a.id, target: b.id, k: kind, w: w };
+    var lk = { source: a.id, target: b.id, k: kind, w: 0, ev: mergeEv(null, ev) || null };
+    lk.w = scoreOf(lk).score;
     linkKeys.set(key, lk);
     links.push(lk);
     a.deg++; b.deg++;
@@ -456,7 +546,10 @@
       var list = d.data || [];
       if (!byId.has(n.id)) return;
       if (!silent) commit();
-      list.forEach(function (a) { addLink(n, ensureNode(a, n.x, n.y)); });
+      list.forEach(function (a, i) {
+        var from = {}; from[n.id] = i + 1;
+        addLink(n, ensureNode(a, n.x, n.y), 'd', 0, { d: { from: from } });
+      });
       n.expanded = true;
       refresh();
       enrich(n);
@@ -520,7 +613,7 @@
       var c = objs.get(e[0]);
       var m = byId.get(e[0]) || ensureNode(
         { id: c.id, name: c.name, picture_medium: c.picture_medium || c.picture, nb_fan: c.nb_fan }, n.x, n.y);
-      addLink(n, m, 'c', e[1] / max);
+      addLink(n, m, 'c', 0, { c: { count: e[1] } });
     });
     syncSim();
   }
@@ -548,9 +641,10 @@
     var byName = new Map();
     nodes.forEach(function (m) { byName.set(normName(m.name), m); });
     var extra = [];
-    items.forEach(function (it) {
+    items.forEach(function (it, idx) {
+      it._rank = idx + 1;
       var m = byName.get(normName(it.name));
-      if (m && m !== n) addLink(n, m, 'l', (it.score || 0) / top);
+      if (m && m !== n) addLink(n, m, 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
       else if (!m) extra.push(it);
     });
     syncSim();
@@ -561,7 +655,7 @@
       var hit = (sr.data || []).filter(function (x) { return normName(x.name) === normName(it.name); })
         .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0];
       if (!hit) continue;
-      addLink(n, byId.get(hit.id) || ensureNode(hit, n.x, n.y), 'l', (it.score || 0) / top);
+      addLink(n, byId.get(hit.id) || ensureNode(hit, n.x, n.y), 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
       syncSim();
     }
     return 'ok';
@@ -730,7 +824,7 @@
             nb_fan: x.ent.a.nb_fan }, n.x, n.y);
           added++;
         }
-        addLink(n, m, 'e', base * Math.max(x.cos, x.match ? 0.8 : 0));
+        addLink(n, m, 'e', 0, { e: { labels: [name], cos: x.cos, match: x.match, size: size } });
         kept++;
       });
       if (kept) used.push(name);
@@ -909,6 +1003,25 @@
       }
     }
 
+    /* Score de compatibilite au milieu du lien entre le noeud survole et le noeud selectionne. */
+    if (f && selected && f !== selected) {
+      var hl = linkKeys.get(f.id < selected.id ? f.id + '-' + selected.id : selected.id + '-' + f.id);
+      if (hl) {
+        var ptxt = Math.round(scoreOf(hl).score * 100) + ' %';
+        var mx = (f.x + selected.x) / 2, my = (f.y + selected.y) / 2;
+        ctx.save();
+        ctx.font = (12 / k) + 'px ' + C.mono;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var tw = ctx.measureText(ptxt).width, pd = 6 / k;
+        ctx.globalAlpha = 1; ctx.fillStyle = C.bg;
+        ctx.fillRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
+        ctx.strokeStyle = C.accent; ctx.lineWidth = 1 / k;
+        ctx.strokeRect(mx - tw / 2 - pd, my - 9 / k, tw + 2 * pd, 18 / k);
+        ctx.fillStyle = C.accent; ctx.fillText(ptxt, mx, my);
+        ctx.restore();
+      }
+    }
+
     var base = clamp((k - 0.3) / 0.4, 0, 1);
     ctx.font = (11 / k) + 'px ' + C.mono;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = C.ink;
@@ -1079,7 +1192,8 @@
       }),
       links: links.map(function (l) {
         return [typeof l.source === 'object' ? l.source.id : l.source,
-                typeof l.target === 'object' ? l.target.id : l.target, l.k || 'd', l.w || 0];
+                typeof l.target === 'object' ? l.target.id : l.target, l.k || 'd', l.w || 0,
+                l.ev ? JSON.parse(JSON.stringify(l.ev)) : null];
       }),
       selectedId: selected ? selected.id : null
     };
@@ -1103,7 +1217,7 @@
     });
     s.links.forEach(function (p) {
       var a = byId.get(p[0]), b = byId.get(p[1]);
-      if (a && b) addLink(a, b, p[2], p[3]);
+      if (a && b) addLink(a, b, p[2], p[3], p[4]);
     });
     hovered = null;
     selected = (s.selectedId != null && byId.get(s.selectedId)) || null;
@@ -1332,6 +1446,7 @@
     var narrow = window.matchMedia('(max-width: 640px)').matches;
     el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top 5' : 'Top 5 titres');
     renderTracks(n);
+    renderLinks(n);
     var hints = [];
     if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
     if (n.ext && n.ext.txt) hints.push(n.ext.txt);
@@ -1339,6 +1454,58 @@
     el('chint').textContent = hints.join(' ');
     updateNow();
     if (playing && !playing.paused) startAnim();
+  }
+
+  /* Petit trait d'exemple, au meme motif que sur le graphe, pour chaque source. */
+  var DASH = { d: '', l: '5 4', c: '1.5 3.5', e: '8 3 1.5 3' };
+  function sampleSvg(src) {
+    return '<svg viewBox="0 0 24 6" aria-hidden="true"><line x1="1" y1="3" x2="23" y2="3" stroke="currentColor" stroke-width="1.3"'
+      + (DASH[src] ? ' stroke-dasharray="' + DASH[src] + '"' : ' stroke-opacity="0.5"') + '/></svg>';
+  }
+
+  /* Liste des liens de l'artiste selectionne, classes par score, avec l'origine de chaque score. */
+  function renderLinks(n) {
+    var box = el('clinks'), ol = el('lklist');
+    ol.textContent = '';
+    var items = [];
+    links.forEach(function (lk) {
+      var a = idOf(lk.source), b = idOf(lk.target);
+      if (a !== n.id && b !== n.id) return;
+      var other = byId.get(a === n.id ? b : a);
+      if (other) items.push({ other: other, sc: scoreOf(lk) });
+    });
+    box.hidden = !items.length;
+    if (!items.length) return;
+    items.sort(function (x, y) { return y.sc.score - x.sc.score; });
+    el('lksum').textContent = 'Liens et compatibilité (' + items.length + ')';
+    items.slice(0, 12).forEach(function (it) {
+      var pct = Math.round(it.sc.score * 100);
+      var li = document.createElement('li');
+      var r1 = document.createElement('div'); r1.className = 'r1';
+      var p = document.createElement('span'); p.className = 'pct'; p.textContent = pct + ' %';
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.other.name;
+      r1.append(p, nm);
+      var bar = document.createElement('div'); bar.className = 'sbar';
+      var fill = document.createElement('i'); fill.style.width = pct + '%'; bar.appendChild(fill);
+      var why = document.createElement('div'); why.className = 'why';
+      it.sc.parts.forEach(function (x) {
+        var pt = document.createElement('div'); pt.className = 'pt';
+        pt.insertAdjacentHTML('afterbegin', sampleSvg(x.src));
+        var t = document.createElement('span'); t.textContent = x.text;
+        pt.appendChild(t);
+        why.appendChild(pt);
+      });
+      li.append(r1, bar, why);
+      li.addEventListener('click', function () { select(it.other); });
+      li.addEventListener('mouseenter', function () { hovered = it.other; draw(); });
+      li.addEventListener('mouseleave', function () { if (hovered === it.other) { hovered = null; draw(); } });
+      ol.appendChild(li);
+    });
+    if (items.length > 12) {
+      var more = document.createElement('li'); more.className = 'more';
+      more.textContent = '+ ' + (items.length - 12) + ' autres liens moins compatibles';
+      ol.appendChild(more);
+    }
   }
 
   function renderTracks(n) {
@@ -1708,6 +1875,7 @@
   themeLabel();
   historyUI();
   if (window.innerWidth < 700) document.getElementById('panel').open = false;
+  el('clinks').open = window.innerWidth >= 700;
   document.addEventListener('pointerdown', function (e) {
     var p = document.getElementById('panel');
     if (p.open && window.innerWidth < 700 && !p.contains(e.target)) p.open = false;
