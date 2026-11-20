@@ -207,14 +207,15 @@
   #card .lk .why { margin-left: 3.4em; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
   #card .lk .lknote { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
   #card.min .lk { display: none; }
-  #card .out { margin: 8px 0 0; border-top: 0; padding-top: 0; }
-  #card .outl { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 4px 0 2px; }
-  #card .outl a { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; color: var(--ink);
+  /* Logos des services, dans l'en-tete sous le nombre de liens ; ils peuvent deborder sous les boutons de fermeture. */
+  #card .head > div { min-width: 0; }
+  #card .outl { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px -54px 0 0; }
+  #card .outl a { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; color: var(--ink);
     border: 1px solid var(--line); opacity: 0.8; }
-  #card .outl a svg { width: 16px; height: 16px; }
+  #card .outl a svg { width: 14px; height: 14px; }
   #card .outl a:hover, #card .outl a:focus-visible { color: var(--accent); border-color: var(--accent); opacity: 1; }
   #card .outl a.direct { border-bottom: 2px solid var(--accent); }
-  @media (pointer: coarse) { #card .outl a { width: 40px; height: 40px; } }
+  @media (pointer: coarse) { #card .outl { margin-right: -90px; } #card .outl a { width: 34px; height: 34px; } #card .outl a svg { width: 16px; height: 16px; } }
 
   #ltip { position: absolute; z-index: 7; max-width: 300px; padding: 8px 10px; background: var(--bg);
     border: 1px solid var(--ink); font-size: 11px; line-height: 1.4; pointer-events: none; }
@@ -287,6 +288,7 @@
     #card img { width: 44px; height: 44px; }
     #card .name { font-size: 16px; }
     #card .head { gap: 10px; padding-right: 92px; }
+    #card .outl { margin-right: -92px; }
     #card .actions { margin-top: 8px; }
     #card .actions button { padding: 9px 4px; }
     #card:not([hidden]) ~ #status[data-kind="count"] { display: none; }
@@ -375,13 +377,9 @@
       <div>
         <div class="name" id="cname"></div>
         <div class="meta" id="cmeta"></div>
+        <div id="coutl" class="outl"></div>
       </div>
     </div>
-    <details id="cout" class="lk out">
-      <summary>Ouvrir sur&hellip;</summary>
-      <div id="coutl" class="outl"></div>
-      <p class="lknote">Deezer (souligné) ouvre la fiche de l&rsquo;artiste ; les autres logos ouvrent une recherche sur son nom (un homonyme peut apparaître).</p>
-    </details>
     <div class="actions">
       <button id="aexp" type="button">Explorer</button>
       <button id="alisten" type="button">&Eacute;couter</button>
@@ -1741,7 +1739,7 @@
     function add(label, href, direct) {
       var a = document.createElement('a');
       a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      a.title = direct ? label + ' : fiche de l’artiste' : label + ' : rechercher ' + n.name;
+      a.title = direct ? label + ' : fiche de l’artiste (lien direct)' : label + ' : rechercher ' + n.name + ' (un homonyme peut apparaître)';
       a.setAttribute('aria-label', a.title);
       if (direct) a.className = 'direct';
       var svg = document.createElementNS(NS, 'svg');
