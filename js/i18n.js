@@ -124,6 +124,7 @@ EN = {
   'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.': 'Double-click an artist to see its neighbours. "?" opens help.',
   'Recherche étendue : {name}': 'Extended search: {name}', 'en cours': 'running', 'terminé': 'done', '+ {n} autres': '+ {n} more',
   'Les nouveaux artistes apparaîtront tous ensemble à la fin.': 'New artists will all appear together at the end.',
+  'En écoute': 'Now playing', 'En pause': 'Paused',
   'Mes écoutes': 'My listening', 'Aucun artiste dans cette catégorie.': 'No artist in this category.',
   'Aucun artiste marqué. Dans la fiche d’un artiste, choisis « À écouter », « Aimé » ou « Écouté ».': 'No artist marked yet. On an artist card, choose "To listen", "Liked" or "Listened".',
   'Ouvrir {name} sur la carte': 'Open {name} on the map', 'Retirer de la liste': 'Remove from the list',

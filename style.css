@@ -122,7 +122,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 button:disabled:hover { background: transparent; color: var(--ink); }
 
 #card { position: absolute; left: 20px; bottom: 44px; width: min(300px, calc(100% - 40px)); padding: 14px;
-  z-index: 5; border-color: var(--ink); max-height: min(60vh, 520px); overflow-y: auto; }
+  z-index: 5; border-color: var(--ink); max-height: min(60vh, 520px); overflow-y: auto; overflow-x: hidden; }
 #card button.mn { right: 30px; }
 #card.min .actions, #card.min .now, #card.min ol, #card.min .hint { display: none; }
 #card .x, #card .mn { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; padding: 0; border: 0;
@@ -134,12 +134,25 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #card .meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
 #card .actions { display: flex; gap: 6px; margin-top: 12px; }
 #card .actions button { padding: 6px 4px; font-size: 11px; min-width: 0; }
-#card .now { margin-top: 10px; font-size: 11px; }
-#card .now span { display: block; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#card .bar { position: relative; height: 14px; margin-top: 2px; cursor: pointer; touch-action: none; }
-#card .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--line); }
-#card .bar i { position: absolute; left: 0; top: 6px; height: 2px; width: 0; background: var(--accent); }
-#card .bar i::after { content: ""; position: absolute; right: -3px; top: -3px; width: 8px; height: 8px; background: var(--accent); }
+/* Lecteur : un bloc encadre d'orange, teinte, avec son propre bouton lecture et pause, le titre et le temps. */
+#card .now { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 9px 10px 6px;
+  border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--bg)); }
+#card .now[hidden] { display: none; }
+#card .now .pp { width: 34px; height: 34px; flex: none; padding: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--accent); border-color: var(--accent); color: var(--bg); }
+#card .now .pp:hover { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+#card .now .pp svg { width: 14px; height: 14px; }
+#card .now .pp .i-play, #card .now.paused .pp .i-pause { display: none; }
+#card .now.paused .pp .i-play { display: block; }
+#card .now .nowm { flex: 1; min-width: 0; }
+#card .now .nowl { display: flex; justify-content: space-between; gap: 8px; font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent); }
+#card .now #cnowtime { color: var(--muted); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+#card .now .nowt { margin-top: 2px; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#card .bar { position: relative; height: 14px; margin-top: 3px; cursor: pointer; touch-action: none; }
+#card .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 4px; background: var(--line); }
+#card .bar i { position: absolute; left: 0; top: 5px; height: 4px; width: 0; background: var(--accent); max-width: 100%; }
+#card .bar i::after { content: ""; position: absolute; right: -5px; top: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 #card ol { list-style: none; margin: 10px 0 0; padding: 0; }
 #card li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line);
   cursor: pointer; font-size: 11px; }
@@ -187,7 +200,7 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #card .lk .disc .dt span { color: var(--muted); font-size: 10.5px; }
 #card .lk .disc li:hover b, #card .lk .disc li.on b { color: var(--accent); }
 #card .lk .disc li.more { cursor: default; color: var(--muted); }
-#card .lk .disc li.more button.link { font-size: 11px; color: var(--muted); text-align: left; }
+#card .lk .disc li.more button.link { font-size: 11px; color: var(--muted); text-align: left; white-space: normal; max-width: 100%; line-height: 1.45; }
 #card .lk .disc li.more button.link:hover { color: var(--accent); }
 /* Barre de l'ecoute de la carte */
 /* Liste « Mes ecoutes » */

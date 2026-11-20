@@ -363,6 +363,14 @@ function updateNow() {
   if (!t) { box.hidden = true; return; }
   box.hidden = false;
   el('cnowt').textContent = t;
+  box.classList.toggle('paused', !!playing.paused);
+  el('cnowk').textContent = playing.paused ? T('En pause') : playing.kind === 'tour' ? T('Écoute de la carte') : T('En écoute');
+  el('cnowpp').setAttribute('aria-label', playing.paused ? T('Reprendre') : T('Pause'));
+  updateNowTime();
+}
+function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function updateNowTime() {
+  el('cnowtime').textContent = audio.duration ? mmss(audio.currentTime) + ' / ' + mmss(audio.duration) : '';
 }
 
 /* Joue un extrait quelconque (titre d'album, voisin de l'ecoute de la carte). kind : 'album' ou 'tour'. */
@@ -867,7 +875,9 @@ bar.addEventListener('pointercancel', function () { seeking = false; });
 
 audio.addEventListener('timeupdate', function () {
   if (!seeking && audio.duration) el('cbar').style.width = (100 * audio.currentTime / audio.duration) + '%';
+  updateNowTime();
 });
+el('cnowpp').addEventListener('click', function () { if (playing) togglePause(); });
 audio.addEventListener('ended', function () {
   var wasTour = tour && playing && playing.kind === 'tour';
   playing = null; renderCard();

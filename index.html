@@ -164,8 +164,15 @@
       <button type="button" id="atour" class="link">Écouter ses voisins</button>
     </div>
     <div class="now" id="cnow" hidden>
-      <span id="cnowt"></span>
-      <div class="bar"><i id="cbar"></i></div>
+      <button id="cnowpp" class="pp" type="button" aria-label="Pause">
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3" height="11" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" fill="currentColor"/></svg>
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11l9-5.5z" fill="currentColor"/></svg>
+      </button>
+      <div class="nowm">
+        <div class="nowl"><span id="cnowk">En écoute</span><span id="cnowtime"></span></div>
+        <div class="nowt" id="cnowt"></div>
+        <div class="bar"><i id="cbar"></i></div>
+      </div>
     </div>
     <ol id="ctracks" hidden></ol>
     <div class="hint" id="chint"></div>
