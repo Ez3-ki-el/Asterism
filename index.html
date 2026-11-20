@@ -244,6 +244,30 @@
   #card .outl a.direct { border-bottom: 2px solid var(--accent); }
   @media (pointer: coarse) { #card .outl { margin-right: -90px; } #card .outl a { width: 34px; height: 34px; } #card .outl a svg { width: 16px; height: 16px; } }
 
+  /* Boutons de zoom et d'aide, aide, bulle de retour d'action (toast), info-bulle de survol d'un artiste. */
+  #tools { position: absolute; right: 20px; bottom: 66px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
+  #tools button { width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; background: var(--bg); }
+  #tools button:hover { background: var(--ink); }
+  #help { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30;
+    width: min(480px, calc(100% - 32px)); max-height: calc(100% - 48px); overflow-y: auto; padding: 18px 20px; border-color: var(--ink); }
+  #help h2 { font: 18px/1.2 var(--serif); margin: 0 30px 4px 0; }
+  #help h3 { margin: 16px 0 6px; font-size: 10.5px; font-weight: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  #help dl { display: grid; grid-template-columns: minmax(0, 12.5em) 1fr; gap: 7px 16px; margin: 0; font-size: 12px; line-height: 1.4; }
+  @media (max-width: 640px) { #help dl { grid-template-columns: minmax(0, 8.5em) 1fr; gap: 7px 12px; } }
+  #help dt { color: var(--accent); }
+  #help dd { margin: 0; }
+  #help .hx { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0; border: 0; font-size: 20px; line-height: 1; }
+  #toast { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 25; max-width: min(540px, calc(100% - 32px));
+    padding: 10px 14px; font-size: 12px; line-height: 1.4; border-color: var(--ink); animation: toastin 0.18s ease-out; }
+  #toast[hidden] { display: none; }
+  #toast button.link { font-size: inherit; color: var(--accent); }
+  @keyframes toastin { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
+  #ntip { position: absolute; z-index: 7; padding: 6px 9px; background: var(--bg); border: 1px solid var(--ink);
+    font-size: 11px; line-height: 1.35; pointer-events: none; max-width: 240px; }
+  #ntip[hidden] { display: none; }
+  #ntip b { font-weight: normal; color: var(--ink); display: block; }
+  #ntip span { color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { #toast { animation: none; } }
   #ltip { position: absolute; z-index: 7; max-width: 300px; padding: 8px 10px; background: var(--bg);
     border: 1px solid var(--ink); font-size: 11px; line-height: 1.4; pointer-events: none; }
   #ltip[hidden] { display: none; }
@@ -290,6 +314,7 @@
     input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
     input[type=checkbox] { width: 22px; height: 22px; }
     #theme { padding: 10px; right: 10px; bottom: 6px; }
+    #tools button { width: 40px; height: 40px; }
     #status button.link { padding: 10px 6px; }
     #surprise { padding: 10px 12px; }
   }
@@ -327,6 +352,8 @@
     #card .actions button { padding: 9px 4px; }
     #card:not([hidden]) ~ #status[data-kind="count"] { display: none; }
     #status { left: 14px; bottom: 10px; }
+    #tools { top: 66px; bottom: auto; right: 14px; }
+    #toast { bottom: auto; top: 68px; }
 
     #empty { left: 20px; bottom: 56px; }
   }
@@ -464,6 +491,38 @@
     </details>
   </div>
 
+  <div id="tools">
+    <button id="zin" type="button" aria-label="Zoom avant" title="Zoom avant">+</button>
+    <button id="zout" type="button" aria-label="Zoom arrière" title="Zoom arrière">&minus;</button>
+    <button id="helpbtn" type="button" aria-label="Aide" title="Aide">?</button>
+  </div>
+
+  <div id="help" class="box" role="dialog" aria-labelledby="helptitle" hidden>
+    <button id="helpx" class="hx" type="button" aria-label="Fermer">&times;</button>
+    <h2 id="helptitle">Comment ça marche</h2>
+    <h3>Souris ou doigt</h3>
+    <dl>
+      <dt>Clic</dt><dd>Ouvre la fiche de l’artiste</dd>
+      <dt>Double-clic</dt><dd>Affiche ses voisins (bouton « Explorer »)</dd>
+      <dt>Clic droit, appui long</dt><dd>Menu : épingler, focus, supprimer…</dd>
+      <dt>Glisser un artiste</dt><dd>Le déplace</dd>
+      <dt>Glisser le fond, molette, pincement</dt><dd>Déplace et zoome la carte</dd>
+      <dt>Survol d’un lien</dt><dd>Score de compatibilité</dd>
+    </dl>
+    <h3>Clavier</h3>
+    <dl>
+      <dt>/</dt><dd>Chercher un artiste</dd>
+      <dt>Flèches</dt><dd>Passer à l’artiste voisin dans cette direction</dd>
+      <dt>Entrée</dt><dd>Explorer l’artiste sélectionné</dd>
+      <dt>Échap</dt><dd>Fermer la fiche ou l’aide</dd>
+      <dt>Suppr</dt><dd>Supprimer l’artiste sélectionné</dd>
+      <dt>+ −</dt><dd>Zoomer, dézoomer</dd>
+      <dt>Ctrl+Z, Ctrl+Y</dt><dd>Annuler, rétablir</dd>
+      <dt>?</dt><dd>Afficher cette aide</dd>
+    </dl>
+  </div>
+
+  <div id="toast" class="box" role="status" aria-live="polite" hidden></div>
   <div id="status"></div>
   <button id="lang" class="link" type="button" aria-label="Langue" title="Langue"><span data-l="fr">FR</span> / <span data-l="en">EN</span></button>
   <button id="theme" class="link" type="button"></button>
@@ -794,9 +853,9 @@
       n.expanded = true;
       refresh();
       enrich(n);
-      if (!list.length) setStatus(T('Aucun artiste lié pour {name}', { name: n.name }));
+      if (!list.length) toast(T('Aucun artiste lié pour {name}', { name: n.name }));
     } catch (e) {
-      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
+      toast(T('Erreur Deezer : {m}', { m: T(e.message) }));
     } finally {
       n.loading = false;
       sim.alpha(0.7).restart();
@@ -1591,6 +1650,28 @@
   }
   function hideLinkTip() { clearTimeout(ltipTimer); if (ltip) ltip.hidden = true; }
 
+  /* Info-bulle d'un artiste survole : nom, fans, liens. Utile quand les noms sont masques par le zoom. */
+  var ntip = document.createElement('div');
+  ntip.id = 'ntip'; ntip.hidden = true;
+  app.appendChild(ntip);
+  function hideNodeTip() { ntip.hidden = true; }
+  function showNodeTip(n, cx, cy) {
+    ntip.textContent = '';
+    var b = document.createElement('b'), sp = document.createElement('span');
+    b.textContent = n.name;
+    var bits = [];
+    if (typeof n.fans === 'number') bits.push(T('{n} fans', { n: loc(n.fans) }));
+    bits.push(T(n.deg > 1 ? '{n} liens' : '{n} lien', { n: n.deg }));
+    sp.textContent = bits.join(' · ');
+    ntip.append(b, sp);
+    ntip.hidden = false;
+    var r = app.getBoundingClientRect();
+    ntip.style.left = Math.max(8, Math.min(cx - r.left + 14, W - ntip.offsetWidth - 8)) + 'px';
+    ntip.style.top = Math.max(8, Math.min(cy - r.top + 16, H - ntip.offsetHeight - 8)) + 'px';
+  }
+  canvas.addEventListener('pointerdown', hideNodeTip);
+  canvas.addEventListener('wheel', hideNodeTip, { passive: true });
+
   canvas.addEventListener('pointermove', function (e) {
     if (dragging || e.pointerType === 'touch') return;
     var pos = evPos(e);
@@ -1598,6 +1679,7 @@
     var lk = n ? null : linkAt(pos);
     canvas.style.cursor = (n || lk) ? 'pointer' : 'grab';
     setHover(n);
+    if (n && menu.hidden) showNodeTip(n, e.clientX, e.clientY); else hideNodeTip();
     if (lk !== hoveredLink) {
       hoveredLink = lk;
       if (lk) showLinkTip(lk, e.clientX, e.clientY); else hideLinkTip();
@@ -1607,6 +1689,7 @@
     }
   });
   canvas.addEventListener('pointerleave', function () {
+    hideNodeTip();
     if (dragging) return;
     setHover(null);
     if (hoveredLink) { hoveredLink = null; hideLinkTip(); draw(); }
@@ -1746,10 +1829,10 @@
     try {
       var snap = await decodeShare(str);
       restore(snap);
-      setStatus(T('Carte partagée chargée : {n} artistes', { n: snap.nodes.length }));
+      toast(T('Carte partagée chargée : {n} artistes', { n: snap.nodes.length }));
       setTimeout(fit, 700);
     } catch (e) {
-      setStatus(T('Lien de partage illisible'));
+      toast(T('Lien de partage illisible'));
     }
   }
   function copyText(text) {
@@ -1762,17 +1845,17 @@
     });
   }
   el('share').addEventListener('click', async function () {
-    if (!nodes.length) { setStatus(T('Rien à partager : la carte est vide')); return; }
+    if (!nodes.length) { toast(T('Rien à partager : la carte est vide')); return; }
     try {
       var base = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : SHARE_BASE;
       var url = base + '#s=' + await encodeShare();
-      if (url.length > 60000) { setStatus(T('Carte trop grande pour un lien : utilise l’image PNG')); return; }
-      try { await copyText(url); setStatus(T('Lien copié : {n} artistes, {k} liens', { n: nodes.length, k: links.length })); }
+      if (url.length > 60000) { toast(T('Carte trop grande pour un lien : utilise l’image PNG')); return; }
+      try { await copyText(url); toast(T('Lien copié : {n} artistes, {k} liens', { n: nodes.length, k: links.length })); }
       catch (e) { window.prompt(T('Copie ce lien :'), url); }
-    } catch (e) { setStatus(T('Partage impossible : {m}', { m: e.message })); }
+    } catch (e) { toast(T('Partage impossible : {m}', { m: e.message })); }
   });
   el('png').addEventListener('click', function () {
-    if (!nodes.length) { setStatus(T('Rien à exporter : la carte est vide')); return; }
+    if (!nodes.length) { toast(T('Rien à exporter : la carte est vide')); return; }
     draw();
     var out = document.createElement('canvas');
     out.width = canvas.width; out.height = canvas.height;
@@ -1784,15 +1867,15 @@
     c2.fillText('Asterism' + (roots.length ? '  ·  ' + roots.join(', ') : '') + '  ·  ez3-ki-el.github.io/Asterism', 14 * sc, out.height - 12 * sc);
     try {
       out.toBlob(function (blob) {
-        if (!blob) { setStatus(T('Export impossible')); return; }
+        if (!blob) { toast(T('Export impossible')); return; }
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'asterism' + (roots[0] ? '-' + normName(roots[0]).replace(/\s+/g, '-') : '') + '.png';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-        setStatus(T('Image enregistrée'));
+        toast(T('Image enregistrée'));
       }, 'image/png');
-    } catch (e) { setStatus(T('Export impossible : images protégées par le navigateur')); }
+    } catch (e) { toast(T('Export impossible : images protégées par le navigateur')); }
   });
 
   function historyUI() {
@@ -1853,7 +1936,7 @@
     byId.delete(n.id); adj.delete(n.id);
     refresh();
     renderCard();
-    if (!silent) setStatus(T('Nœud supprimé'), T('Annuler'), undo);
+    if (!silent) toast(T('Nœud supprimé'), T('Annuler'), undo);
     sim.alpha(0.4).restart();
   }
 
@@ -1894,7 +1977,7 @@
         run: function () {
           commit();
           lv.forEach(function (m) { removeNode(m, true); });
-          setStatus(T('{n} nœuds supprimés', { n: lv.length }), T('Annuler'), undo);
+          toast(T('{n} nœuds supprimés', { n: lv.length }), T('Annuler'), undo);
         } },
       { label: T('Supprimer le nœud'), danger: true, run: function () { removeNode(n); } }
     ];
@@ -2338,7 +2421,7 @@
       var d = await dz('/artist/' + n.id + '/top?limit=' + TOP_MAX);
       list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
     } catch (e) {
-      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
+      toast(T('Erreur Deezer : {m}', { m: T(e.message) }));
       return null;
     }
     n.tracksSrc = 'deezer';
@@ -2532,7 +2615,7 @@
         var d = await dz('/search/artist?q=' + encodeURIComponent(v) + '&limit=6');
         if (q.value.trim() !== v) return;
         qList = d.data || []; qSel = qList.length ? 0 : -1; renderResults();
-      } catch (e) { setStatus(T('Erreur Deezer : {m}', { m: T(e.message) })); }
+      } catch (e) { toast(T('Erreur Deezer : {m}', { m: T(e.message) })); }
     }, 250);
   });
   q.addEventListener('keydown', function (e) {
@@ -2554,16 +2637,46 @@
     expand(n, true);
     try { history.replaceState(null, '', '#' + encodeURIComponent(a.name)); } catch (e) {}
     if (first) setTimeout(fit, 1500);
+    firstVisitHint();
   }
 
   async function searchAndAdd(name) {
     try {
       var d = await dz('/search/artist?q=' + encodeURIComponent(name) + '&limit=1');
-      if (d.data && d.data[0]) addRoot(d.data[0]); else setStatus(T('Aucun artiste trouvé pour {name}', { name: name }));
-    } catch (e) { setStatus(T('Erreur Deezer : {m}', { m: T(e.message) })); }
+      if (d.data && d.data[0]) addRoot(d.data[0]); else toast(T('Aucun artiste trouvé pour {name}', { name: name }));
+    } catch (e) { toast(T('Erreur Deezer : {m}', { m: T(e.message) })); }
   }
 
   /* ---------- Panneau et divers ---------- */
+  /* Bulle de retour d'action : disparait seule (plus longtemps si elle porte un bouton, comme Annuler). */
+  var toastTimer = null;
+  function hideToast() { clearTimeout(toastTimer); el('toast').hidden = true; }
+  function toast(text, label, fn, ms) {
+    var t = el('toast');
+    t.textContent = text;
+    if (label) {
+      t.append(' · ');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'link'; b.textContent = label;
+      b.addEventListener('click', function () { hideToast(); fn(); });
+      t.appendChild(b);
+    }
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, ms || (label ? 7000 : 3800));
+  }
+  /* Message d'accueil, une seule fois : le double-clic est le geste le moins visible. */
+  function firstVisitHint() {
+    var seen = false;
+    try { seen = localStorage.getItem('mg-hint') === '1'; } catch (e) {}
+    if (seen) return;
+    try { localStorage.setItem('mg-hint', '1'); } catch (e) {}
+    var coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    setTimeout(function () {
+      toast(T(coarse ? 'Touche deux fois un artiste pour voir ses voisins. Appui long : menu.'
+        : 'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.'), null, null, 9000);
+    }, 1800);
+  }
   function setStatus(t, label, fn, kind) {
     var s = document.getElementById('status');
     s.dataset.kind = kind || 'msg';
@@ -2596,7 +2709,7 @@
     focusDepth = +e.target.value;
     document.getElementById('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
     recomputeVisible(); draw();
-    if (focusDepth > 0 && !selected) setStatus(T('Clique sur un nœud pour choisir le centre du focus'));
+    if (focusDepth > 0 && !selected) toast(T('Clique sur un nœud pour choisir le centre du focus'));
   });
   document.getElementById('dist').addEventListener('input', function (e) {
     document.getElementById('distv').textContent = e.target.value;
@@ -2614,7 +2727,7 @@
   document.getElementById('clear').addEventListener('click', function () {
     if (!nodes.length) return;
     commit(); clearGraph();
-    setStatus(T('Carte effacée'), T('Annuler'), undo);
+    toast(T('Carte effacée'), T('Annuler'), undo);
   });
   el('undo').addEventListener('click', undo);
   el('redo').addEventListener('click', redo);
@@ -2666,22 +2779,74 @@
       commit(); clearGraph();
       addRoot(a, true);
     } catch (e) {
-      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
+      toast(T('Erreur Deezer : {m}', { m: T(e.message) }));
     } finally {
       surprising = false;
       btn.disabled = false;
     }
   }
   el('surprise').addEventListener('click', surprise);
+  /* Zoom et aide */
+  function zoomBy(f) { sel.transition().duration(220).call(zoom.scaleBy, f); }
+  el('zin').addEventListener('click', function () { zoomBy(1.5); });
+  el('zout').addEventListener('click', function () { zoomBy(1 / 1.5); });
+  function showHelp() { hideMenu(); hideNodeTip(); el('help').hidden = false; el('helpx').focus(); }
+  function hideHelp() { el('help').hidden = true; }
+  el('helpbtn').addEventListener('click', function () { if (el('help').hidden) showHelp(); else hideHelp(); });
+  el('helpx').addEventListener('click', hideHelp);
+  document.addEventListener('pointerdown', function (e) {
+    var h = el('help');
+    if (!h.hidden && !h.contains(e.target) && !el('helpbtn').contains(e.target)) hideHelp();
+  });
+
+  /* Clavier : on passe a l'artiste le plus proche dans la direction de la fleche (a +-60 degres environ). */
+  function ensureOnScreen(m) {
+    var p = transform.apply([m.x, m.y]);
+    if (p[0] < 50 || p[0] > W - 50 || p[1] < 90 || p[1] > H - 50) sel.transition().duration(300).call(zoom.translateTo, m.x, m.y);
+  }
+  function moveSelection(dx, dy) {
+    var from = selected;
+    if (!from) {
+      var start = nodes.filter(function (m) { return m.root && vis(m); })[0] || nodes.filter(vis)[0];
+      if (start) { select(start); ensureOnScreen(start); }
+      return;
+    }
+    var best = null, bs = Infinity;
+    nodes.forEach(function (m) {
+      if (m === from || !vis(m)) return;
+      var vx = m.x - from.x, vy = m.y - from.y, d = Math.hypot(vx, vy);
+      if (!d) return;
+      var cos = (vx * dx + vy * dy) / d;
+      if (cos < 0.5) return;
+      if (d / cos < bs) { bs = d / cos; best = m; }
+    });
+    if (best) { select(best); ensureOnScreen(best); }
+  }
   window.addEventListener('keydown', function (e) {
     if (document.activeElement === q) return;
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       var kk = e.key.toLowerCase();
       if (kk === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
       if (kk === 'y' || (kk === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+      return;
     }
-    if (e.key === 'Escape') { hideMenu(); select(null); }
+    if (e.key === 'Escape') {
+      if (!el('help').hidden) hideHelp(); else { hideMenu(); select(null); }
+      return;
+    }
+    var tg = e.target, tag = (tg && tg.tagName) || '';
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (tg && tg.isContentEditable) || e.altKey) return;
+    var onCtl = /^(BUTTON|SUMMARY|A)$/.test(tag);
+    if (e.key === '/') { e.preventDefault(); q.focus(); q.select(); }
+    else if (e.key === '?') { if (el('help').hidden) showHelp(); else hideHelp(); }
+    else if (e.key === '+' || e.key === '=') zoomBy(1.5);
+    else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.5);
     else if (e.key === 'Delete' && selected) removeNode(selected);
+    else if (!onCtl && e.key === 'ArrowRight') { e.preventDefault(); moveSelection(1, 0); }
+    else if (!onCtl && e.key === 'ArrowLeft') { e.preventDefault(); moveSelection(-1, 0); }
+    else if (!onCtl && e.key === 'ArrowDown') { e.preventDefault(); moveSelection(0, 1); }
+    else if (!onCtl && e.key === 'ArrowUp') { e.preventDefault(); moveSelection(0, -1); }
+    else if (!onCtl && e.key === 'Enter' && selected && !selected.expanded && !selected.loading) { e.preventDefault(); expand(selected); renderCard(); }
   });
   window.addEventListener('resize', resize);
 
@@ -2834,6 +2999,20 @@
     'Rien à exporter : la carte est vide': 'Nothing to export: the map is empty',
     'Export impossible': 'Export failed', 'Image enregistrée': 'Image saved',
     'Export impossible : images protégées par le navigateur': 'Export failed: images protected by the browser',
+    'Zoom avant': 'Zoom in', 'Zoom arrière': 'Zoom out', 'Aide': 'Help', 'Comment ça marche': 'How it works',
+    'Souris ou doigt': 'Mouse or touch', 'Clavier': 'Keyboard', 'Clic': 'Click',
+    'Ouvre la fiche de l’artiste': 'Opens the artist card', 'Double-clic': 'Double-click',
+    'Affiche ses voisins (bouton « Explorer »)': 'Shows its neighbours ("Explore" button)',
+    'Clic droit, appui long': 'Right-click, long press', 'Menu : épingler, focus, supprimer…': 'Menu: pin, focus, delete…',
+    'Glisser un artiste': 'Drag an artist', 'Le déplace': 'Moves it',
+    'Glisser le fond, molette, pincement': 'Drag the background, wheel, pinch', 'Déplace et zoome la carte': 'Pans and zooms the map',
+    'Survol d’un lien': 'Hover a link', 'Score de compatibilité': 'Compatibility score',
+    'Flèches': 'Arrow keys', 'Passer à l’artiste voisin dans cette direction': 'Jump to the nearest artist in that direction',
+    'Entrée': 'Enter', 'Explorer l’artiste sélectionné': 'Explore the selected artist', 'Échap': 'Esc',
+    'Fermer la fiche ou l’aide': 'Close the card or this help', 'Suppr': 'Del', 'Supprimer l’artiste sélectionné': 'Delete the selected artist',
+    'Zoomer, dézoomer': 'Zoom in, zoom out', 'Annuler, rétablir': 'Undo, redo', 'Afficher cette aide': 'Show this help',
+    'Touche deux fois un artiste pour voir ses voisins. Appui long : menu.': 'Double-tap an artist to see its neighbours. Long press: menu.',
+    'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.': 'Double-click an artist to see its neighbours. "?" opens help.',
     'Identité et liens (Wikidata)': 'Identity and links (Wikidata)',
     'Genres': 'Genres', 'Pays': 'Country', 'Naissance': 'Born', 'Formé en': 'Formed in', 'Décès': 'Died',
     'Site officiel': 'Official website', 'Wikipédia': 'Wikipedia',
@@ -2886,6 +3065,7 @@
   }
   function setLang(l) {
     LANG = l;
+    hideNodeTip();
     try { localStorage.setItem('mg-lang', l); } catch (e) {}
     applyLang();
   }
