@@ -188,6 +188,11 @@
   #card .lk .pt { display: flex; align-items: center; gap: 6px; }
   #card .lk .pt svg { width: 24px; height: 6px; flex: none; color: var(--ink); }
   #panel .lg { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  #panel label.lg { cursor: pointer; }
+  #panel .lg.zero { opacity: 0.55; }
+  #panel .lg .sp { width: 11px; flex: none; }
+  #panel .lg .cnt { color: var(--muted); }
+  #panel .lgnote { margin-top: 8px; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
   #panel .lg svg { width: 40px; height: 8px; flex: none; color: var(--ink); }
   #card .lk li.more { cursor: default; color: var(--muted); font-size: 10.5px; }
   #card .lk li:hover .nm { color: var(--accent); }
@@ -312,11 +317,12 @@
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
       <div class="legend" id="extlegend" hidden>
-        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/></svg><span>Artistes similaires (Deezer)</span></div>
-        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.5 3.5"/></svg><span>Collaboration</span></div>
-        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 3 1.5 3"/></svg><span>Même label</span></div>
-        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/></svg><span>ListenBrainz</span></div>
-        <div class="lg"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
+        <label class="lg"><input type="checkbox" data-kind="d" checked aria-label="Artistes similaires (Deezer)"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/></svg><span>Artistes similaires (Deezer) <span class="cnt" data-count="d"></span></span></label>
+        <label class="lg"><input type="checkbox" data-kind="c" checked aria-label="Collaboration"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.5 3.5"/></svg><span>Collaboration <span class="cnt" data-count="c"></span></span></label>
+        <label class="lg"><input type="checkbox" data-kind="e" checked aria-label="Même label"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 3 1.5 3"/></svg><span>Même label <span class="cnt" data-count="e"></span></span></label>
+        <label class="lg"><input type="checkbox" data-kind="l" checked aria-label="ListenBrainz"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/></svg><span>ListenBrainz <span class="cnt" data-count="l"></span></span></label>
+        <div class="lg"><span class="sp"></span><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
+        <div class="lgnote">Décocher un type masque ses liens, et les scores se recalculent avec les types cochés.</div>
       </div>
       <div class="row">
         <button id="undo" type="button" disabled>Annuler</button>
@@ -435,12 +441,59 @@
     .on('tick', draw);
 
   function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
-  function vis(n) { return !visible || visible.has(n.id); }
+  /* Types de liens affiches (cases de la legende) : d Deezer, c collaboration, e label, l ListenBrainz.
+     Hors option « Sources etendues », tout est affiche, pour ne jamais masquer sans moyen de reafficher. */
+  var kindsOn = { d: true, c: true, e: true, l: true }, kindsVer = 0, shown = null;
+  try {
+    var savedKinds = JSON.parse(localStorage.getItem('mg-kinds') || 'null');
+    if (savedKinds) ['d', 'c', 'e', 'l'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
+  } catch (e) {}
+  function kOn(c) { return !extOn || kindsOn[c]; }
+  /* Lettres de types d'un lien qui sont actuellement cochees ('' = lien masque). */
+  function ekOf(lk) {
+    if (lk._kv !== kindsVer || lk._kk !== lk.k) {
+      var s = '', src = lk.k || 'd';
+      for (var i = 0; i < src.length; i++) if (kOn(src[i])) s += src[i];
+      lk._ek = s; lk._kv = kindsVer; lk._kk = lk.k;
+    }
+    return lk._ek;
+  }
+  function isShown(n) { return !shown || shown.has(n.id); }
+  function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
+  /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
+  function recomputeShown() {
+    if (!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l)) { shown = null; return; }
+    shown = new Set();
+    links.forEach(function (lk) {
+      if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
+    });
+    nodes.forEach(function (n) { if (n.root || n === selected || n.deg === 0) shown.add(n.id); });
+  }
+  function refreshWeights() { links.forEach(function (lk) { lk.w = scoreOf(lk).score; }); }
+  function updateLegend() {
+    var cnt = { d: 0, c: 0, e: 0, l: 0 };
+    links.forEach(function (lk) {
+      var s = lk.k || 'd';
+      for (var i = 0; i < s.length; i++) if (cnt[s[i]] !== undefined) cnt[s[i]]++;
+    });
+    document.querySelectorAll('#extlegend [data-count]').forEach(function (e) {
+      var c = cnt[e.getAttribute('data-count')];
+      e.textContent = '(' + c + ')';
+      e.parentNode.parentNode.classList.toggle('zero', c === 0);
+    });
+  }
+  function applyKinds() {
+    kindsVer++;
+    refreshWeights(); recomputeShown(); recomputeVisible(); updateLegend();
+    renderCard(); draw();
+  }
 
   function refresh() {
     sim.nodes(nodes);
     sim.force('link').links(links);
     recomputeVisible();
+    recomputeShown();
+    updateLegend();
     document.getElementById('empty').hidden = nodes.length > 0;
     setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
   }
@@ -492,23 +545,23 @@
   function scoreOf(lk) {
     var ev = lk.ev || {}, k = lk.k || 'd', parts = [], prod = 1;
     function add(s, src, text) { parts.push({ src: src, s: s, text: text }); prod *= (1 - s); }
-    if (ev.d || k.indexOf('d') >= 0) {
+    if ((ev.d || k.indexOf('d') >= 0) && kOn('d')) {
       var ranks = ev.d ? Object.keys(ev.d.from).map(function (id) { return ev.d.from[id]; }) : [];
       var best = ranks.length ? Math.min.apply(null, ranks) : 10, recip = ranks.length > 1;
       var sd = 0.35 + 0.5 * (1 - (best - 1) / 19);
       if (recip) sd = Math.min(0.95, sd + 0.1);
       add(sd, 'd', 'Deezer : rang ' + best + ' sur 20' + (recip ? ', lien réciproque' : ''));
     }
-    if (ev.l || k.indexOf('l') >= 0) {
+    if ((ev.l || k.indexOf('l') >= 0) && kOn('l')) {
       var rel = ev.l ? ev.l.score / ev.l.top : 0.5;
       add(0.3 + 0.6 * rel, 'l', 'ListenBrainz : ' + Math.round(rel * 100) + ' % du meilleur voisin'
         + (ev.l && ev.l.rank ? ' (rang ' + ev.l.rank + ')' : ''));
     }
-    if (ev.c || k.indexOf('c') >= 0) {
+    if ((ev.c || k.indexOf('c') >= 0) && kOn('c')) {
       var cnt = ev.c ? ev.c.count : 1;
       add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration : ' + cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun');
     }
-    if (ev.e || k.indexOf('e') >= 0) {
+    if ((ev.e || k.indexOf('e') >= 0) && kOn('e')) {
       var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
       var se = 0.15 + 0.25 * e.cos + (e.match ? 0.2 : 0);
       if (e.size >= 40) se *= 0.8;
@@ -578,7 +631,7 @@
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function alive(n, g) { return gen === g && byId.get(n.id) === n; }
   /* A appeler apres chaque ajout fait entre deux requetes : sans cela la simulation lit des liens non rattaches. */
-  function syncSim() { sim.nodes(nodes); sim.force('link').links(links); sim.alpha(0.4).restart(); }
+  function syncSim() { sim.nodes(nodes); sim.force('link').links(links); recomputeShown(); sim.alpha(0.4).restart(); }
 
   async function mbJson(url) {
     for (var attempt = 0; attempt < 3; attempt++) {
@@ -921,7 +974,7 @@
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    function plain(lk) { return !lk.k || lk.k === 'd'; }
+    function plain(lk) { return ekOf(lk) === 'd'; }
     pass(function (lk) { return plain(lk) && !isDim(lk); }, f ? 0.35 : 1);
     if (dimRoot) pass(function (lk) { return plain(lk) && isDim(lk); }, f ? 0.12 : 0.33);
 
@@ -929,16 +982,17 @@
        trait plein epais = confirme par plusieurs sources ; l'epaisseur suit le poids. */
     for (i = 0; i < links.length; i++) {
       l = links[i];
-      if (plain(l) || typeof l.source !== 'object' || !vis(l.source) || !vis(l.target)) continue;
+      var ek = ekOf(l);
+      if (!ek || ek === 'd' || typeof l.source !== 'object' || !vis(l.source) || !vis(l.target)) continue;
       if (f && (l.source === f || l.target === f)) continue;
-      var multi = l.k.length > 1, wgt = 1 + (l.w || 0) * 0.8;
+      var multi = ek.length > 1, wgt = 1 + (l.w || 0) * 0.8;
       ctx.beginPath();
       ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
       ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1);
       ctx.strokeStyle = multi ? C.ink : C.link;
       ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
-      ctx.setLineDash(multi ? [] : (l.k === 'c' ? [1.5 / k, 3.5 / k]
-        : l.k === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k] : [5 / k, 4 / k]));
+      ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
+        : ek === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k] : [5 / k, 4 / k]));
       ctx.stroke();
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
@@ -947,7 +1001,7 @@
       ctx.beginPath();
       for (i = 0; i < links.length; i++) {
         l = links[i];
-        if (typeof l.source !== 'object') continue;
+        if (typeof l.source !== 'object' || !ekOf(l)) continue;
         if (l.source === f || l.target === f) { ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); }
       }
       ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
@@ -956,6 +1010,7 @@
     var now = performance.now();
     for (i = 0; i < nodes.length; i++) {
       n = nodes[i];
+      if (!isShown(n)) continue;
       var v = vis(n), a = v ? 1 : 0.07;
       if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
       ctx.globalAlpha = a;
@@ -1006,7 +1061,7 @@
     /* Score de compatibilite au milieu du lien entre le noeud survole et le noeud selectionne. */
     if (f && selected && f !== selected) {
       var hl = linkKeys.get(f.id < selected.id ? f.id + '-' + selected.id : selected.id + '-' + f.id);
-      if (hl) {
+      if (hl && ekOf(hl)) {
         var ptxt = Math.round(scoreOf(hl).score * 100) + ' %';
         var mx = (f.x + selected.x) / 2, my = (f.y + selected.y) / 2;
         ctx.save();
@@ -1437,7 +1492,11 @@
     if (img.getAttribute('src') !== n.pic) img.src = n.pic;
     var meta = [];
     if (typeof n.fans === 'number') meta.push(n.fans.toLocaleString('fr-FR') + ' fans');
-    meta.push(n.deg + (n.deg > 1 ? ' liens' : ' lien'));
+    var vc = 0;
+    links.forEach(function (lk) {
+      if ((idOf(lk.source) === n.id || idOf(lk.target) === n.id) && ekOf(lk)) vc++;
+    });
+    meta.push(vc === n.deg ? n.deg + (n.deg > 1 ? ' liens' : ' lien') : vc + ' liens affichés sur ' + n.deg);
     el('cmeta').textContent = meta.join(' · ');
     var ex = el('aexp');
     ex.textContent = n.loading ? 'Chargement' : n.expanded ? 'Exploré' : 'Explorer';
@@ -1471,6 +1530,7 @@
     links.forEach(function (lk) {
       var a = idOf(lk.source), b = idOf(lk.target);
       if (a !== n.id && b !== n.id) return;
+      if (!ekOf(lk)) return;
       var other = byId.get(a === n.id ? b : a);
       if (other) items.push({ other: other, sc: scoreOf(lk) });
     });
@@ -1631,7 +1691,18 @@
     extOn = e.target.checked;
     el('extlegend').hidden = !extOn;
     try { localStorage.setItem('mg-ext', extOn ? '1' : '0'); } catch (err) {}
+    applyKinds();
     if (extOn && selected && selected.expanded && !selected.ext) { commit(); enrich(selected); }
+  });
+  /* Cases de la legende : un type de lien par case, memorise dans le navigateur. */
+  document.querySelectorAll('#extlegend input[data-kind]').forEach(function (inp) {
+    var kind = inp.getAttribute('data-kind');
+    inp.checked = kindsOn[kind];
+    inp.addEventListener('change', function () {
+      kindsOn[kind] = inp.checked;
+      try { localStorage.setItem('mg-kinds', JSON.stringify(kindsOn)); } catch (err) {}
+      applyKinds();
+    });
   });
 
   var seeking = false;
