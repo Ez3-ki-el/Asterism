@@ -129,6 +129,11 @@
   input[type=range]:hover::-moz-range-thumb { background: var(--accent); border-color: var(--accent); }
 
   #panel .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  /* Cadre orange qui pulse doucement : invite a essayer les sources etendues (voir updateNudge). */
+  @keyframes nudge { 0%, 100% { outline-color: color-mix(in srgb, var(--accent) 22%, transparent); } 50% { outline-color: var(--accent); } }
+  #panel label.nudge { outline: 1px solid var(--accent); outline-offset: 5px; animation: nudge 2.4s ease-in-out infinite; }
+  #panel:not([open]).nudge summary { outline: 1px solid var(--accent); outline-offset: 3px; animation: nudge 2.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #panel label.nudge, #panel:not([open]).nudge summary { animation: none; } }
   #panel .tag { color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; }
   #panel .legend { color: var(--muted); font-size: 11px; line-height: 1.4; margin-top: 8px; }
   #panel .legend[hidden] { display: none; }
@@ -1705,8 +1710,21 @@
     }, 300);
   }
 
+  /* Le cadre pulse tant que l'artiste choisi a 3 voisins Deezer ou moins et que les sources etendues sont decochees ;
+     il s'arrete des que l'utilisateur survole la case (il a vu), ou active l'option. */
+  var nudgeSeen = false;
+  function updateNudge() {
+    var s = selected;
+    var on = !nudgeSeen && !extOn && !!s && s.expanded && !s.loading && s.deg <= 3;
+    el('extopt').parentNode.classList.toggle('nudge', on);
+    el('panel').classList.toggle('nudge', on);
+  }
+  el('extopt').parentNode.addEventListener('pointerenter', function () { nudgeSeen = true; updateNudge(); });
+  el('panel').addEventListener('toggle', function () { if (el('panel').open && el('panel').classList.contains('nudge')) updateNudge(); });
+
   function renderCard() {
     var n = selected;
+    updateNudge();
     card.hidden = !n;
     if (!n) { updateNow(); return; }
     card.classList.toggle('min', cardMin);
@@ -2012,6 +2030,7 @@
   /* Active ou desactive les sources etendues (case des reglages, ou bouton « Essayer » de la fiche). */
   function setExt(on) {
     extOn = on;
+    updateNudge();
     el('extopt').checked = on;
     el('extlegend').hidden = !on;
     try { localStorage.setItem('mg-ext', on ? '1' : '0'); } catch (err) {}
