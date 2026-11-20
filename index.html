@@ -988,7 +988,10 @@
     var narrow = window.matchMedia('(max-width: 640px)').matches;
     el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top 5' : 'Top 5 titres');
     renderTracks(n);
-    el('chint').textContent = n.tracks === null ? 'Aucun extrait disponible' : '';
+    var hints = [];
+    if (n.expanded && n.deg === 0) hints.push('Deezer ne propose aucun artiste lié pour celui-ci.');
+    if (n.tracks === null) hints.push('Aucun extrait disponible');
+    el('chint').textContent = hints.join(' ');
     updateNow();
     if (playing && !playing.paused) startAnim();
   }
@@ -1247,8 +1250,41 @@
   el('undo').addEventListener('click', undo);
   el('redo').addEventListener('click', redo);
 
-  var genres = null, surprising = false;
+  var surprising = false, SYL_C = 'bcdfgklmnprstvz', SYL_V = 'aeiou';
   function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function randomSyllable() {
+    var s = randomOf(SYL_C) + randomOf(SYL_V);
+    if (Math.random() < 0.5) s += randomOf(SYL_C + 'n');
+    return s;
+  }
+
+  /* Le point d'acces "genre" de Deezer renvoie les memes 50 artistes pour tous les genres :
+     on tire donc une syllabe au hasard, on cherche, on prend un decalage au hasard dans les
+     resultats, puis on fait un saut vers un voisin. Un artiste sans voisins est ecarte. */
+  async function pickSurprise() {
+    for (var attempt = 0; attempt < 6; attempt++) {
+      try {
+        var q = randomSyllable();
+        var probe = await dz('/search/artist?q=' + q + '&limit=1');
+        var total = probe.total || 0;
+        if (total < 5) continue;
+        var index = Math.floor(Math.random() * (Math.max(0, Math.min(total - 50, 300)) + 1));
+        var found = (await dz('/search/artist?q=' + q + '&limit=50&index=' + index)).data || [];
+        var mid = found.filter(function (x) { return (x.nb_fan || 0) >= 2000 && (x.nb_fan || 0) <= 3000000; });
+        var pool = mid.length ? mid : found;
+        if (!pool.length) continue;
+        var a = randomOf(pool);
+        var rel = (await dz('/artist/' + a.id + '/related?limit=20')).data || [];
+        if (rel.length < 8) continue;
+        var known = rel.filter(function (x) { return (x.nb_fan || 0) >= 1000; });
+        var b = randomOf(known.length ? known : rel);
+        var rel2 = (await dz('/artist/' + b.id + '/related?limit=20')).data || [];
+        return rel2.length >= 5 ? b : a;
+      } catch (e) { /* on retente avec une autre syllabe */ }
+    }
+    return null;
+  }
+
   async function surprise() {
     if (surprising) return;
     surprising = true;
@@ -1256,24 +1292,8 @@
     btn.disabled = true;
     setStatus('Recherche d’un artiste…');
     try {
-      if (!genres) {
-        var g = await dz('/genre');
-        genres = (g.data || []).filter(function (x) { return x.id > 0; });
-      }
-      if (!genres.length) throw new Error('aucun genre');
-      var list = [];
-      for (var tries = 0; tries < 3 && !list.length; tries++) {
-        try { list = (await dz('/genre/' + randomOf(genres).id + '/artists')).data || []; } catch (e) { list = []; }
-      }
-      if (!list.length) throw new Error('aucun artiste trouvé');
-      var a = randomOf(list);
-      for (var step = 0; step < 2; step++) {
-        try {
-          var r = await dz('/artist/' + a.id + '/related?limit=20');
-          if (!r.data || !r.data.length) break;
-          a = randomOf(r.data);
-        } catch (e) { break; }
-      }
+      var a = await pickSurprise();
+      if (!a) throw new Error('aucun artiste trouvé, réessaie');
       commit(); clearGraph();
       addRoot(a, true);
     } catch (e) {
