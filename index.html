@@ -545,7 +545,17 @@
     if (savedKinds) ['d', 'c', 'e', 'l', 'p'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
   } catch (e) {}
   try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) {}
-  function kOn(c) { return !extOn || kindsOn[c]; }
+  /* Sources etendues decochees : seuls les liens Deezer restent visibles ; cocher la case (reglages, ou « Essayer » de la fiche)
+     reaffiche les autres, avec les types choisis dans la legende. */
+  function kOn(c) { return c === 'd' || (extOn && kindsOn[c]); }
+  /* Nombre de voisins Deezer d'un artiste (liens de type d), quelle que soit la visibilite des autres types. */
+  function dDeg(n) {
+    var c = 0;
+    links.forEach(function (lk) {
+      if (lk.k && lk.k.indexOf('d') >= 0 && (idOf(lk.source) === n.id || idOf(lk.target) === n.id)) c++;
+    });
+    return c;
+  }
   /* Mode petits artistes : au-dela d'un nombre de fans (curseur des reglages), un artiste est estompe, jamais masque :
      il reste cliquable. La racine et la selection ne sont jamais estompees. Indice 0 = tout afficher. */
   var FAN_STEPS = [0, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500], fanIdx = 0, fanMax = 0;
@@ -567,7 +577,7 @@
   function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
   /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
   function recomputeShown() {
-    if ((!extOn || (kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p)) && minScore <= 0) { shown = null; return; }
+    if (extOn && kindsOn.d && kindsOn.c && kindsOn.e && kindsOn.l && kindsOn.p && minScore <= 0) { shown = null; return; }
     shown = new Set();
     links.forEach(function (lk) {
       if (ekOf(lk)) { shown.add(idOf(lk.source)); shown.add(idOf(lk.target)); }
@@ -1974,7 +1984,7 @@
   var nudgeSeen = false;
   function updateNudge() {
     var s = selected;
-    var on = !nudgeSeen && !extOn && !!s && s.expanded && !s.loading && s.deg <= 3;
+    var on = !nudgeSeen && !extOn && !!s && s.expanded && !s.loading && dDeg(s) <= 3;
     el('extopt').parentNode.classList.toggle('nudge', on);
     el('panel').classList.toggle('nudge', on);
     el('grpext').classList.toggle('nudge', on);
@@ -2010,9 +2020,9 @@
     renderLinks(n);
     renderOut(n);
     var hints = [];
-    var few = n.expanded && !n.loading && n.deg <= 3;
-    if (few) hints.push(n.deg === 0 ? T('Deezer ne propose aucun artiste lié.')
-      : T(n.deg > 1 ? 'Deezer ne propose que {n} artistes liés.' : 'Deezer ne propose que {n} artiste lié.', { n: n.deg }));
+    var dd = dDeg(n), few = n.expanded && !n.loading && dd <= 3;
+    if (few) hints.push(dd === 0 ? T('Deezer ne propose aucun artiste lié.')
+      : T(dd > 1 ? 'Deezer ne propose que {n} artistes liés.' : 'Deezer ne propose que {n} artiste lié.', { n: dd }));
     if (n.ext && n.ext.txt) hints.push(T(n.ext.txt));
     if (n.tracksSrc === 'apple' && n.tracks) hints.push(T('Extraits : Apple (absents chez Deezer).'));
     if (n.tracks === null) {
@@ -2033,7 +2043,7 @@
       hb.appendChild(inv);
     }
     var extLines = n.ext && n.ext.lines;
-    el('cext').hidden = !extLines;
+    el('cext').hidden = !extLines || !extOn;
     if (extLines) {
       el('cextsum').textContent = n.ext.sumf();
       var xl = el('cextl');
@@ -2299,6 +2309,7 @@
     el('extlegend').hidden = !on;
     try { localStorage.setItem('mg-ext', on ? '1' : '0'); } catch (err) {}
     applyKinds();
+    if (!on) refresh();   /* efface le message « N liens ajoutes » devenu faux */
     if (on && selected && selected.expanded && !selected.ext) { commit(); enrich(selected); }
   }
   el('extopt').addEventListener('change', function (e) { setExt(e.target.checked); });
