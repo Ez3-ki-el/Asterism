@@ -466,37 +466,71 @@ function loadAlbums(n) {
   }, function (e) { dbg('discographie', e); n.albumsP = null; n.albums = null; return null; });
   return n.albumsP;
 }
+/* Deezer melange parfois plusieurs homonymes sous un meme identifiant, et ajoute les sorties ou l'artiste n'est qu'invite.
+   On garde en tete les sorties du genre dominant ; un autre genre est replie s'il forme un vrai groupe (3 sorties et 5 %
+   au moins), s'il n'est pas voisin du genre dominant (meme famille) et si l'artiste a un genre net (60 % au moins).
+   Les bandes originales et les genres inconnus ne sont jamais replies. */
+var GENRE_FAMILY = { 106: 'elec', 113: 'elec', 116: 'urb', 165: 'urb', 169: 'urb', 144: 'urb', 132: 'pop', 52: 'pop', 466: 'pop',
+  84: 'pop', 197: 'pop', 152: 'rock', 85: 'rock', 464: 'rock', 129: 'jazz', 153: 'jazz', 98: 'jazz' };
+function splitDisc(albums) {
+  var cnt = {}, dom = null;
+  albums.forEach(function (a) { if (a.genre_id > 0) cnt[a.genre_id] = (cnt[a.genre_id] || 0) + 1; });
+  Object.keys(cnt).forEach(function (g) { if (dom === null || cnt[g] > cnt[dom]) dom = g; });
+  if (dom === null || cnt[dom] / albums.length < 0.6) return { main: albums, other: [] };
+  var fam = function (g) { return GENRE_FAMILY[g] || ('g' + g); }, fold = {};
+  Object.keys(cnt).forEach(function (g) {
+    if (+g === 173 || fam(g) === fam(dom)) return;
+    if (cnt[g] >= Math.max(3, albums.length * 0.05)) fold[g] = true;
+  });
+  return {
+    main: albums.filter(function (a) { return !fold[a.genre_id]; }),
+    other: albums.filter(function (a) { return fold[a.genre_id]; })
+  };
+}
 var DISC_TYPES = { album: 'Album', ep: 'EP', single: 'Single', compile: 'Compilation' };
+function discItem(n, a, ol) {
+  var li = document.createElement('li');
+  if (playing && playing.id === n.id && playing.album === a.id) li.className = 'on';
+  var img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+  if (a.cover_small) img.src = a.cover_small;
+  var dt = document.createElement('div'); dt.className = 'dt';
+  var b = document.createElement('b'); b.textContent = a.title;
+  var sp = document.createElement('span');
+  sp.textContent = [String(a.release_date || '').slice(0, 4), DISC_TYPES[a.record_type] ? T(DISC_TYPES[a.record_type]) : ''].filter(Boolean).join(' · ');
+  dt.append(b, sp); li.append(img, dt);
+  li.addEventListener('click', function () { playAlbum(n, a); });
+  ol.appendChild(li);
+}
+function discNote(ol, text, onClick) {
+  var li = document.createElement('li'); li.className = 'more';
+  if (onClick) {
+    var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'link'; bt.textContent = text;
+    bt.addEventListener('click', onClick); li.appendChild(bt);
+  } else li.textContent = text;
+  ol.appendChild(li);
+}
 function renderDisc(n) {
   var box = el('cdisc'), ol = el('cdiscl');
-  el('cdiscsum').textContent = n.albums ? T('Discographie ({n})', { n: n.albums.length }) : T('Discographie');
+  var parts = n.albums ? splitDisc(n.albums) : null;
+  el('cdiscsum').textContent = parts ? T('Discographie ({n})', { n: parts.main.length }) : T('Discographie');
   if (!box.open) return;
   ol.textContent = '';
   if (n.albums === undefined) {
-    var wait = document.createElement('li'); wait.className = 'more'; wait.textContent = T('Chargement'); ol.appendChild(wait);
+    discNote(ol, T('Chargement'));
     loadAlbums(n).then(function () { if (selected === n) renderDisc(n); });
     return;
   }
-  if (!n.albums || !n.albums.length) {
-    var none = document.createElement('li'); none.className = 'more'; none.textContent = T('Aucun album chez Deezer'); ol.appendChild(none);
-    return;
-  }
-  n.albums.slice(0, 24).forEach(function (a) {
-    var li = document.createElement('li');
-    if (playing && playing.id === n.id && playing.album === a.id) li.className = 'on';
-    var img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
-    if (a.cover_small) img.src = a.cover_small;
-    var dt = document.createElement('div'); dt.className = 'dt';
-    var b = document.createElement('b'); b.textContent = a.title;
-    var sp = document.createElement('span');
-    sp.textContent = [String(a.release_date || '').slice(0, 4), DISC_TYPES[a.record_type] ? T(DISC_TYPES[a.record_type]) : ''].filter(Boolean).join(' · ');
-    dt.append(b, sp); li.append(img, dt);
-    li.addEventListener('click', function () { playAlbum(n, a); });
-    ol.appendChild(li);
-  });
-  if (n.albums.length > 24) {
-    var more = document.createElement('li'); more.className = 'more';
-    more.textContent = T('+ {n} autres', { n: n.albums.length - 24 }); ol.appendChild(more);
+  if (!n.albums || !n.albums.length) { discNote(ol, T('Aucun album chez Deezer')); return; }
+  parts.main.slice(0, 24).forEach(function (a) { discItem(n, a, ol); });
+  if (parts.main.length > 24) discNote(ol, T('+ {n} autres', { n: parts.main.length - 24 }));
+  if (parts.other.length) {
+    if (!n.discOther) {
+      discNote(ol, T('+ {n} sorties d’un autre genre (homonyme ou featuring possible)', { n: parts.other.length }),
+        function () { n.discOther = true; renderDisc(n); });
+    } else {
+      discNote(ol, T('Autre genre, homonyme ou featuring possible :'));
+      parts.other.slice(0, 24).forEach(function (a) { discItem(n, a, ol); });
+    }
   }
 }
 async function playAlbum(n, a) {

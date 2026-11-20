@@ -187,6 +187,8 @@ button:disabled:hover { background: transparent; color: var(--ink); }
 #card .lk .disc .dt span { color: var(--muted); font-size: 10.5px; }
 #card .lk .disc li:hover b, #card .lk .disc li.on b { color: var(--accent); }
 #card .lk .disc li.more { cursor: default; color: var(--muted); }
+#card .lk .disc li.more button.link { font-size: 11px; color: var(--muted); text-align: left; }
+#card .lk .disc li.more button.link:hover { color: var(--accent); }
 /* Barre de l'ecoute de la carte */
 #tourbar { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 21; width: min(420px, calc(100% - 32px));
   padding: 10px 12px; border-color: var(--accent); font-size: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -13,7 +13,7 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 - **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
 - **Fiche** au clic sur un nœud : Explorer, Écouter, Top des titres (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
 - **Écouter ses voisins** : depuis la fiche ou le menu, l'artiste puis ses voisins, du plus compatible au moins compatible, un extrait chacun, avec une barre Précédent, Pause, Suivant, Arrêter. Choisir un artiste à la main arrête l'écoute.
-- **Discographie** : albums, EP et singles Deezer avec pochette et année, un clic joue le premier extrait de l'album.
+- **Discographie** : albums, EP et singles Deezer avec pochette et année, un clic joue le premier extrait de l'album. Deezer mélange parfois des homonymes sous un même artiste et ajoute ses featurings : les sorties d'un genre éloigné du genre dominant, quand elles forment un vrai groupe, sont repliées sous « + N sorties d'un autre genre ».
 - **Mes écoutes** : marquer un artiste « À écouter », « Aimé » ou « Écouté ». Un repère apparaît sur son nœud (point orange, anneau orange, point plein), et la liste s'exporte en fichier texte avec les liens Deezer. Tout reste dans le navigateur.
 - **Repli Apple** : quand Deezer n'a aucun extrait, ceux d'Apple (iTunes) prennent le relais, avec un appariement strict sur le nom.
 - **Ouvrir ailleurs** : logos Deezer, Spotify, Apple Music, YouTube Music, Bandcamp et SoundCloud. Lien exact quand Wikidata connaît l'artiste (souligné en orange), sinon recherche sur le nom.
