@@ -262,6 +262,26 @@
   #toast[hidden] { display: none; }
   #toast button.link { font-size: inherit; color: var(--accent); }
   @keyframes toastin { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
+  /* Panneau de progression de la recherche etendue : une ligne par source, avec son etat. */
+  #xprog { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; width: min(340px, calc(100% - 32px));
+    padding: 12px 14px; border-color: var(--accent); font-size: 12px; line-height: 1.4; }
+  #xprog[hidden] { display: none; }
+  #xprog .xh { display: flex; justify-content: space-between; gap: 10px; color: var(--ink); }
+  #xprog .xn { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  #xprog .xbar { height: 3px; background: var(--line); margin: 8px 0 10px; overflow: hidden; }
+  #xprog .xbar i { display: block; height: 100%; width: 30%; background: var(--accent); animation: xslide 1.3s ease-in-out infinite; }
+  #xprog .xbar.done i { width: 100%; animation: none; }
+  @keyframes xslide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  #xprog ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+  #xprog li { display: flex; align-items: center; gap: 9px; }
+  #xprog .dot { width: 8px; height: 8px; flex: none; border: 1px solid var(--ink); }
+  #xprog .dot.run { border-color: var(--accent); background: var(--accent); animation: xblink 1s ease-in-out infinite; }
+  #xprog .dot.done { background: var(--ink); }
+  #xprog .dot.fail { border-style: dashed; opacity: 0.6; }
+  @keyframes xblink { 50% { opacity: 0.25; } }
+  #xprog .st { margin-left: auto; color: var(--muted); font-size: 11px; }
+  #xprog .xs { margin-top: 10px; color: var(--muted); font-size: 11px; }
+  @media (prefers-reduced-motion: reduce) { #xprog .xbar i, #xprog .dot.run { animation: none; } }
   #ntip { position: absolute; z-index: 7; padding: 6px 9px; background: var(--bg); border: 1px solid var(--ink);
     font-size: 11px; line-height: 1.35; pointer-events: none; max-width: 240px; }
   #ntip[hidden] { display: none; }
@@ -354,6 +374,7 @@
     #status { left: 14px; bottom: 10px; }
     #tools { top: 66px; bottom: auto; right: 14px; }
     #toast { bottom: auto; top: 68px; }
+    #xprog { top: 64px; bottom: auto; left: 12px; right: 64px; width: auto; transform: none; }
 
     #empty { left: 20px; bottom: 56px; }
   }
@@ -522,6 +543,7 @@
     </dl>
   </div>
 
+  <div id="xprog" class="box" role="status" aria-live="polite" hidden></div>
   <div id="toast" class="box" role="status" aria-live="polite" hidden></div>
   <div id="status"></div>
   <button id="lang" class="link" type="button" aria-label="Langue" title="Langue"><span data-l="fr">FR</span> / <span data-l="en">EN</span></button>
@@ -824,7 +846,7 @@
   }
   function releaseHold(tok) {
     var now = performance.now(), any = false;
-    nodes.forEach(function (n) { if (n.hold === tok) { n.hold = 0; n.born = now; any = true; } });
+    nodes.forEach(function (n) { if (n.hold === tok) { n.hold = 0; n.born = now; n.flash = now; any = true; } });
     links.forEach(function (lk) {
       if (lk.hold !== tok) return;
       lk.hold = 0; lk.born = now; any = true;
@@ -832,7 +854,7 @@
       if (a && b) connect(lk, a, b);
     });
     if (!any) return;
-    fadeUntil = now + FADE_MS + 60;
+    fadeUntil = now + 1900;
     recomputeShown(); recomputeVisible(); updateLegend();
     sim.alpha(0.5).restart();
     startAnim();
@@ -1205,31 +1227,62 @@
     return used;
   }
 
+  /* ----- Panneau de progression : un travail par artiste enrichi (le plus recent est affiche) ----- */
+  var xjobs = [];
+  var XSRC = [['c', 'Collaborations'], ['e', 'Labels'], ['l', 'ListenBrainz'], ['p', 'Projets (MusicBrainz)']];
+  function removeJob(job) {
+    var i = xjobs.indexOf(job);
+    if (i >= 0) xjobs.splice(i, 1);
+    renderProg();
+  }
+  function renderProg() {
+    var box = el('xprog'), job = xjobs[xjobs.length - 1];
+    if (!job) { box.hidden = true; return; }
+    box.hidden = false;
+    box.textContent = '';
+    var h = document.createElement('div'); h.className = 'xh';
+    var t = document.createElement('span'); t.textContent = T('Recherche étendue : {name}', { name: job.name });
+    h.appendChild(t);
+    var active = xjobs.filter(function (j) { return !j.sum; }).length;
+    if (active > 1) { var more = document.createElement('span'); more.className = 'xn'; more.textContent = T('+ {n} autres', { n: active - 1 }); h.appendChild(more); }
+    var bar = document.createElement('div'); bar.className = 'xbar' + (job.sum ? ' done' : '');
+    bar.appendChild(document.createElement('i'));
+    var ul = document.createElement('ul');
+    XSRC.forEach(function (x) {
+      var li = document.createElement('li'), st = job.st[x[0]];
+      var dot = document.createElement('span'); dot.className = 'dot ' + st;
+      var nm = document.createElement('span'); nm.textContent = T(x[1]);
+      var tx = document.createElement('span'); tx.className = 'st';
+      tx.textContent = st === 'run' ? T('en cours') : st === 'done' ? T('terminé') : T('indisponible');
+      li.append(dot, nm, tx); ul.appendChild(li);
+    });
+    var foot = document.createElement('div'); foot.className = 'xs';
+    foot.textContent = job.sum ? job.sum() : T('Les nouveaux artistes apparaîtront tous ensemble à la fin.');
+    box.append(h, bar, ul, foot);
+  }
+
   async function enrich(n) {
     if (!extOn) return;
     var g = gen;
     n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.', live: true };
     n.enriching = true; startAnim();
-    var total = 4, done = 0;
-    function progress(name) {
-      done++;
-      if (!alive(n, g) || done >= total) return;
-      setStatus(T('Sources étendues : {done} sur {total} terminées ({name}), les nouveaux artistes apparaissent ensemble…', { done: done, total: total, name: name }), null, null, 'msg');
-    }
-    setStatus(T('Sources étendues : recherche en cours (collaborations, labels, ListenBrainz, MusicBrainz), les nouveaux artistes apparaissent ensemble…'), null, null, 'msg');
+    var job = { id: n.id, name: n.name, st: { c: 'run', e: 'run', l: 'run', p: 'run' }, sum: null };
+    xjobs.push(job); renderProg();
+    function mark(k, ok) { job.st[k] = ok ? 'done' : 'fail'; renderProg(); }
     if (selected === n) renderCard();
     var collabFailed = false, lb, pj, labelsUsed = [], labelFailed = false;
     try {
       /* Les trois sources partent en meme temps ; leurs ajouts restent retenus jusqu'a la fin de la derniere. */
       await Promise.all([
-        enrichCollab(n, g).catch(function () { collabFailed = true; }).then(function () { progress('collaborations'); }),
-        enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function () { labelFailed = true; }).then(function () { progress('labels'); }),
-        enrichLB(n, g).then(function (r) { lb = r; }, function () { lb = 'err'; }).then(function () { progress('ListenBrainz'); }),
-        enrichProj(n, g).then(function (r) { pj = r; }, function () { pj = 'err'; }).then(function () { progress('MusicBrainz'); })
+        enrichCollab(n, g).catch(function () { collabFailed = true; }).then(function () { mark('c', !collabFailed); }),
+        enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function () { labelFailed = true; }).then(function () { mark('e', !labelFailed); }),
+        enrichLB(n, g).then(function (r) { lb = r; }, function () { lb = 'err'; }).then(function () { mark('l', lb !== 'err'); }),
+        enrichProj(n, g).then(function (r) { pj = r; }, function () { pj = 'err'; }).then(function () { mark('p', pj !== 'err'); })
       ]);
     } finally {
       n.enriching = false;
       if (gen === g) releaseHold(n.id);   /* meme si l'artiste a ete supprime entre-temps : rien ne doit rester masque */
+      if (gen !== g || !alive(n, g)) removeJob(job);
     }
     if (!alive(n, g)) return;
     var c = 0, l = 0, both = 0, eCount = 0, anyExt = 0, pCount = 0;
@@ -1270,7 +1323,8 @@
     n.ext.txt = '';
     refresh();
     sim.alpha(0.5).restart();
-    setStatus(n.ext.sumf(), null, null, 'msg');
+    job.sum = n.ext.sumf; renderProg();
+    setTimeout(function () { removeJob(job); }, 5000);
     if (selected === n) renderCard();
   }
 
@@ -1423,11 +1477,27 @@
       if (n.enriching) {
         var er = R(n) + 7 / k + 3;
         ctx.save();
+        for (var wv2 = 0; wv2 < 3; wv2++) {
+          var ph2 = ((now / 2400) + wv2 / 3) % 1;
+          ctx.beginPath(); ctx.arc(n.x, n.y, R(n) + (10 + ph2 * 70) / k, 0, 6.2832);
+          ctx.globalAlpha = (1 - ph2) * 0.75; ctx.strokeStyle = C.accent; ctx.lineWidth = 2 / k; ctx.stroke();
+        }
         ctx.beginPath(); ctx.arc(n.x, n.y, er, 0, 6.2832);
         ctx.setLineDash([4 / k, 5 / k]); ctx.lineDashOffset = -now / 60 / k;
         ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6 / k; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(now / 300);
         ctx.stroke();
         ctx.restore();
+      }
+      /* A l'arrivee des nouveaux artistes : un halo orange qui s'etend et s'efface (1,8 s). */
+      if (n.flash) {
+        var ft = (now - n.flash) / 1800;
+        if (ft >= 1) n.flash = 0;
+        else {
+          ctx.save();
+          ctx.beginPath(); ctx.arc(n.x, n.y, R(n) + (3 + ft * 18) / k, 0, 6.2832);
+          ctx.globalAlpha = (1 - ft) * 0.9; ctx.strokeStyle = C.accent; ctx.lineWidth = 2.2 / k; ctx.stroke();
+          ctx.restore();
+        }
       }
     }
 
@@ -1741,12 +1811,13 @@
 
   function restore(s) {
     gen++;
+    xjobs.length = 0; renderProg();
     var old = new Map(byId);
     nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
     s.nodes.forEach(function (d) {
       var n = old.get(d.id);
       if (n) {
-        n.deg = 0; n.ext = undefined; n.hold = 0; n.born = 0; n.enriching = false;
+        n.deg = 0; n.ext = undefined; n.hold = 0; n.born = 0; n.flash = 0; n.enriching = false;
         nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
       } else {
         n = ensureNode({ id: d.id, name: d.name, picture_medium: d.pic, nb_fan: d.fans }, d.x, d.y);
@@ -2718,6 +2789,7 @@
   document.getElementById('fit').addEventListener('click', fit);
   function clearGraph() {
     gen++;
+    xjobs.length = 0; renderProg();
     hovered = null; selected = null; visible = null; stopAudio();
     nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
     refresh(); renderCard();
@@ -3013,6 +3085,8 @@
     'Zoomer, dézoomer': 'Zoom in, zoom out', 'Annuler, rétablir': 'Undo, redo', 'Afficher cette aide': 'Show this help',
     'Touche deux fois un artiste pour voir ses voisins. Appui long : menu.': 'Double-tap an artist to see its neighbours. Long press: menu.',
     'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.': 'Double-click an artist to see its neighbours. "?" opens help.',
+    'Recherche étendue : {name}': 'Extended search: {name}', 'en cours': 'running', 'terminé': 'done', '+ {n} autres': '+ {n} more',
+    'Les nouveaux artistes apparaîtront tous ensemble à la fin.': 'New artists will all appear together at the end.',
     'Identité et liens (Wikidata)': 'Identity and links (Wikidata)',
     'Genres': 'Genres', 'Pays': 'Country', 'Naissance': 'Born', 'Formé en': 'Formed in', 'Décès': 'Died',
     'Site officiel': 'Official website', 'Wikipédia': 'Wikipedia',
@@ -3061,7 +3135,7 @@
     el('clinks').querySelector('.lknote').textContent = T(CARD_NOTE_FR);
     el('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
     themeLabel(); langLabel();
-    refresh(); renderCard(); updateFanLabel();
+    refresh(); renderCard(); updateFanLabel(); renderProg();
   }
   function setLang(l) {
     LANG = l;
