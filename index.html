@@ -250,6 +250,8 @@
 
   #status { position: absolute; left: 20px; bottom: 16px; color: var(--muted); font-size: 11px; pointer-events: none; }
   #theme { position: absolute; right: 20px; bottom: 16px; color: var(--muted); font-size: 11px; }
+  #lang { position: absolute; right: 20px; bottom: 38px; color: var(--muted); font-size: 11px; }
+  #lang span.on { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
   @media (pointer: coarse) {
     html, body { font-size: 13px; }
@@ -293,7 +295,7 @@
     #panel .pbody { position: absolute; top: 46px; right: 0; width: min(270px, calc(100vw - 28px));
       background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; }
     .only-narrow { display: flex !important; }
-    #theme { display: none; }
+    #theme, #lang { display: none; }
 
     #card { left: 12px; right: 12px; bottom: 12px; width: auto; padding: 10px 12px; max-height: 46vh; }
     #card img { width: 44px; height: 44px; }
@@ -380,6 +382,7 @@
       </div>
       <div class="row only-narrow">
         <button id="theme2" type="button">Mode sombre</button>
+        <button id="lang2" type="button">English</button>
       </div>
     </div>
   </details>
@@ -425,6 +428,7 @@
   </div>
 
   <div id="status"></div>
+  <button id="lang" class="link" type="button" aria-label="Langue" title="Langue"><span data-l="fr">FR</span> / <span data-l="en">EN</span></button>
   <button id="theme" class="link" type="button"></button>
 </div>
 
@@ -558,7 +562,7 @@
     var hid = 0;
     links.forEach(function (lk) { if (ekRaw(lk) && lk.w < minScore) hid++; });
     var pct = Math.round(minScore * 100);
-    el('minv').textContent = pct ? '≥ ' + pct + ' % (' + hid + (hid > 1 ? ' masqués)' : ' masqué)') : 'Tout';
+    el('minv').textContent = pct ? '≥ ' + pct + ' % (' + T(hid > 1 ? '{n} masqués' : '{n} masqué', { n: hid }) + ')' : T('Tout');
   }
   function applyKinds() {
     kindsVer++;
@@ -576,7 +580,7 @@
     hideLinkTip();
     if (typeof updateFanLabel === 'function') updateFanLabel();
     document.getElementById('empty').hidden = nodes.length > 0;
-    setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
+    setStatus(nodes.length ? T('{n} artistes, {k} liens', { n: nodes.length, k: links.length }) : '', null, null, 'count');
   }
 
   /* Retenue : les artistes et liens trouves par les sources etendues restent masques (hold = identifiant de l'artiste
@@ -663,16 +667,16 @@
       var best = ranks.length ? Math.min.apply(null, ranks) : 10, recip = ranks.length > 1;
       var sd = 0.35 + 0.5 * (1 - (best - 1) / 19);
       if (recip) sd = Math.min(0.95, sd + 0.1);
-      add(sd, 'd', 'Deezer', ['Rang ' + best + ' sur 20'].concat(recip ? ['Lien réciproque'] : []));
+      add(sd, 'd', 'Deezer', [T('Rang {n} sur 20', { n: best })].concat(recip ? [T('Lien réciproque')] : []));
     }
     if ((ev.l || k.indexOf('l') >= 0) && kOn('l')) {
       var rel = ev.l ? ev.l.score / ev.l.top : 0.5;
-      add(0.3 + 0.6 * rel, 'l', 'ListenBrainz', [Math.round(rel * 100) + ' % du meilleur voisin']
-        .concat(ev.l && ev.l.rank ? ['Rang ' + ev.l.rank + ' chez ListenBrainz'] : []));
+      add(0.3 + 0.6 * rel, 'l', 'ListenBrainz', [T('{n} % du meilleur voisin', { n: Math.round(rel * 100) })]
+        .concat(ev.l && ev.l.rank ? [T('Rang {n} chez ListenBrainz', { n: ev.l.rank })] : []));
     }
     if ((ev.c || k.indexOf('c') >= 0) && kOn('c')) {
       var cnt = ev.c ? ev.c.count : 1;
-      add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', 'Collaboration', [cnt + (cnt > 1 ? ' titres' : ' titre') + ' en commun']);
+      add(Math.min(0.85, 0.5 + 0.1 * cnt), 'c', T('Collaboration'), [T(cnt > 1 ? '{n} titres en commun' : '{n} titre en commun', { n: cnt })]);
     }
     if ((ev.p || k.indexOf('p') >= 0) && kOn('p')) {
       var pr = ev.p ? ev.p.rels : [];
@@ -683,8 +687,8 @@
       var e = ev.e || { labels: [], cos: 0.5, match: false, size: 0 };
       var se = 0.15 + 0.25 * e.cos + (e.match ? 0.2 : 0);
       if (e.size >= 40) se *= 0.8;
-      add(se, 'e', 'Label : ' + (e.labels.join(', ') || '?'), ['Genres comparables à ' + Math.round(e.cos * 100) + ' %']
-        .concat(e.match ? ['Même style (MusicBrainz)'] : []));
+      add(se, 'e', T('Label : {names}', { names: e.labels.join(', ') || '?' }), [T('Genres comparables à {n} %', { n: Math.round(e.cos * 100) })]
+        .concat(e.match ? [T('Même style (MusicBrainz)')] : []));
     }
     return { score: 1 - prod, parts: parts };
   }
@@ -743,9 +747,9 @@
       n.expanded = true;
       refresh();
       enrich(n);
-      if (!list.length) setStatus('Aucun artiste lié pour ' + n.name);
+      if (!list.length) setStatus(T('Aucun artiste lié pour {name}', { name: n.name }));
     } catch (e) {
-      setStatus('Erreur Deezer : ' + e.message);
+      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
     } finally {
       n.loading = false;
       sim.alpha(0.7).restart();
@@ -758,6 +762,12 @@
   var extOn = false;
   /* Traduction : les cles sont les textes francais ; {x} marque une valeur a inserer. Le dictionnaire EN est rempli plus bas. */
   var LANG = 'fr', EN = {};
+  try {
+    var savedLang = localStorage.getItem('mg-lang');
+    LANG = (savedLang === 'en' || savedLang === 'fr') ? savedLang
+      : ((navigator.language || 'fr').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en');
+  } catch (e) {}
+  function loc(n) { return Number(n).toLocaleString(LANG === 'en' ? 'en-US' : 'fr-FR'); }
   function T(fr, v) {
     var s = (LANG === 'en' && EN[fr]) || fr;
     if (v) Object.keys(v).forEach(function (k) { s = s.split('{' + k + '}').join(v[k]); });
@@ -1092,15 +1102,15 @@
   async function enrich(n) {
     if (!extOn) return;
     var g = gen;
-    n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.' };
+    n.ext = { txt: 'Sources étendues en cours : les nouveaux artistes arrivent ensemble.', live: true };
     n.enriching = true; startAnim();
     var total = 4, done = 0;
     function progress(name) {
       done++;
       if (!alive(n, g) || done >= total) return;
-      setStatus('Sources étendues : ' + done + ' sur ' + total + ' terminées (' + name + '), les nouveaux artistes apparaissent ensemble…', null, null, 'msg');
+      setStatus(T('Sources étendues : {done} sur {total} terminées ({name}), les nouveaux artistes apparaissent ensemble…', { done: done, total: total, name: name }), null, null, 'msg');
     }
-    setStatus('Sources étendues : recherche en cours (collaborations, labels, ListenBrainz), les nouveaux artistes apparaissent ensemble…', null, null, 'msg');
+    setStatus(T('Sources étendues : recherche en cours (collaborations, labels, ListenBrainz, MusicBrainz), les nouveaux artistes apparaissent ensemble…'), null, null, 'msg');
     if (selected === n) renderCard();
     var collabFailed = false, lb, pj, labelsUsed = [], labelFailed = false;
     try {
@@ -1128,24 +1138,33 @@
       if (lk.k.indexOf('e') >= 0) eCount++;
     });
     /* Resume court (barre d'etat, titre du detail) et detail ligne par ligne, replie dans la fiche. */
-    var lines = [['Collaborations', collabFailed ? 'indisponibles' : String(c)]];
-    lines.push(['Labels', labelFailed ? 'indisponibles'
-      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')]);
-    if (!labelFailed && n.ext.rej) lines.push([null, n.ext.rej + ' écartés (genre différent ou sans photo)']);
-    if (!labelFailed && n.ext.res) lines.push([null, n.ext.res + ' retrouvés par le style MusicBrainz']);
-    if (!labelFailed && n.ext.mbfail) lines.push([null, 'style MusicBrainz indisponible, réessaie plus tard']);
-    lines.push(['ListenBrainz', lb === 'nomb' ? 'artiste absent de MusicBrainz'
-      : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : String(l)]);
-    lines.push(['Projets (MusicBrainz)', pj === 'nomb' ? 'artiste absent de MusicBrainz'
-      : pj === 'empty' ? 'aucune relation enregistrée' : pj === 'nodz' ? 'relations sans équivalent Deezer'
-      : pj === 'err' ? 'indisponible' : String(pCount)]);
-    if (both) lines.push(['Confirmés par plusieurs sources', String(both)]);
+    var rej = n.ext.rej || 0, res = n.ext.res || 0, mbf = !!n.ext.mbfail;
+    var lines = [function () { return [T('Collaborations'), collabFailed ? T('indisponibles') : String(c)]; }];
+    lines.push(function () {
+      return [T('Labels'), labelFailed ? T('indisponibles') : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')];
+    });
+    if (!labelFailed && rej) lines.push(function () { return [null, T('{n} écartés (genre différent ou sans photo)', { n: rej })]; });
+    if (!labelFailed && res) lines.push(function () { return [null, T('{n} retrouvés par le style MusicBrainz', { n: res })]; });
+    if (!labelFailed && mbf) lines.push(function () { return [null, T('style MusicBrainz indisponible, réessaie plus tard')]; });
+    lines.push(function () {
+      return ['ListenBrainz', lb === 'nomb' ? T('artiste absent de MusicBrainz')
+        : lb === 'empty' ? T('aucun voisin') : lb === 'err' ? T('indisponible') : String(l)];
+    });
+    lines.push(function () {
+      return [T('Projets (MusicBrainz)'), pj === 'nomb' ? T('artiste absent de MusicBrainz')
+        : pj === 'empty' ? T('aucune relation enregistrée') : pj === 'nodz' ? T('relations sans équivalent Deezer')
+        : pj === 'err' ? T('indisponible') : String(pCount)];
+    });
+    if (both) lines.push(function () { return [T('Confirmés par plusieurs sources'), String(both)]; });
     n.ext.lines = lines;
-    n.ext.sum = 'Sources étendues : ' + (anyExt ? anyExt + (anyExt > 1 ? ' liens ajoutés' : ' lien ajouté') : 'aucun lien ajouté');
+    n.ext.sumf = function () {
+      return anyExt ? T(anyExt > 1 ? 'Sources étendues : {n} liens ajoutés' : 'Sources étendues : {n} lien ajouté', { n: anyExt })
+        : T('Sources étendues : aucun lien ajouté');
+    };
     n.ext.txt = '';
     refresh();
     sim.alpha(0.5).restart();
-    setStatus(n.ext.sum, null, null, 'msg');
+    setStatus(n.ext.sumf(), null, null, 'msg');
     if (selected === n) renderCard();
   }
 
@@ -1516,7 +1535,7 @@
     ltip.textContent = '';
     var h = document.createElement('div');
     h.className = 'th';
-    h.textContent = lk.source.name + ' et ' + lk.target.name + ' : ' + Math.round(sc.score * 100) + ' %';
+    h.textContent = T('{a} et {b} : {n} %', { a: lk.source.name, b: lk.target.name, n: Math.round(sc.score * 100) });
     ltip.appendChild(h);
     ltip.appendChild(partsEl(sc.parts));
     ltip.hidden = false;
@@ -1786,50 +1805,50 @@
     byId.delete(n.id); adj.delete(n.id);
     refresh();
     renderCard();
-    if (!silent) setStatus('Nœud supprimé', 'Annuler', undo);
+    if (!silent) setStatus(T('Nœud supprimé'), T('Annuler'), undo);
     sim.alpha(0.4).restart();
   }
 
   function menuItems(n) {
     if (!n) {
       return [
-        { label: 'Annuler', disabled: !undoStack.length, run: undo },
-        { label: 'Rétablir', disabled: !redoStack.length, run: redo },
+        { label: T('Annuler'), disabled: !undoStack.length, run: undo },
+        { label: T('Rétablir'), disabled: !redoStack.length, run: redo },
         { sep: true },
-        { label: 'Recentrer', run: fit },
-        { label: 'Tout effacer', danger: true, disabled: !nodes.length, run: function () { el('clear').click(); } }
+        { label: T('Recentrer'), run: fit },
+        { label: T('Tout effacer'), danger: true, disabled: !nodes.length, run: function () { el('clear').click(); } }
       ];
     }
     var lv = leaves(n);
     return [
-      { label: 'Explorer', disabled: n.expanded || n.loading, run: function () { expand(n); renderCard(); } },
-      { label: (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter',
+      { label: T('Explorer'), disabled: n.expanded || n.loading, run: function () { expand(n); renderCard(); } },
+      { label: (playing && playing.id === n.id) ? (playing.paused ? T('Reprendre') : T('Pause')) : T('Écouter'),
         run: function () { if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0); } },
-      { label: 'Top ' + topN + ' titres',
+      { label: T('Top {n} titres', { n: topN }),
         run: function () { n.showTop = true; loadTracks(n).then(function () { if (selected === n) renderCard(); }); } },
-      { label: focusDepth > 0 ? 'Quitter le focus' : 'Focus sur ce nœud',
+      { label: focusDepth > 0 ? T('Quitter le focus') : T('Focus sur ce nœud'),
         run: function () {
           var s = el('focus');
           s.value = focusDepth > 0 ? 0 : 1;
           s.dispatchEvent(new Event('input'));
         } },
-      { label: n.pinned ? 'Libérer' : 'Épingler',
+      { label: n.pinned ? T('Libérer') : T('Épingler'),
         run: function () {
           commit();
           n.pinned = !n.pinned;
           if (n.pinned) { n.fx = n.x; n.fy = n.y; } else { n.fx = null; n.fy = null; }
           draw();
         } },
-      { label: 'Enrichir (sources étendues)', disabled: !extOn || !n.expanded || !!n.ext,
+      { label: T('Enrichir (sources étendues)'), disabled: !extOn || !n.expanded || !!n.ext,
         run: function () { commit(); enrich(n); } },
       { sep: true },
-      { label: 'Élaguer les feuilles (' + lv.length + ')', disabled: !lv.length,
+      { label: T('Élaguer les feuilles ({n})', { n: lv.length }), disabled: !lv.length,
         run: function () {
           commit();
           lv.forEach(function (m) { removeNode(m, true); });
-          setStatus(lv.length + ' nœuds supprimés', 'Annuler', undo);
+          setStatus(T('{n} nœuds supprimés', { n: lv.length }), T('Annuler'), undo);
         } },
-      { label: 'Supprimer le nœud', danger: true, run: function () { removeNode(n); } }
+      { label: T('Supprimer le nœud'), danger: true, run: function () { removeNode(n); } }
     ];
   }
 
@@ -1946,38 +1965,41 @@
     var img = el('cimg');
     if (img.getAttribute('src') !== n.pic) img.src = n.pic;
     var meta = [];
-    if (typeof n.fans === 'number') meta.push(n.fans.toLocaleString('fr-FR') + ' fans');
+    if (typeof n.fans === 'number') meta.push(T('{n} fans', { n: loc(n.fans) }));
     var vc = 0;
     links.forEach(function (lk) {
       if ((idOf(lk.source) === n.id || idOf(lk.target) === n.id) && ekOf(lk)) vc++;
     });
-    meta.push(vc === n.deg ? n.deg + (n.deg > 1 ? ' liens' : ' lien') : vc + ' liens affichés sur ' + n.deg);
+    meta.push(vc === n.deg ? T(n.deg > 1 ? '{n} liens' : '{n} lien', { n: n.deg }) : T('{vc} liens affichés sur {n}', { vc: vc, n: n.deg }));
     el('cmeta').textContent = meta.join(' · ');
     var ex = el('aexp');
-    ex.textContent = n.loading ? 'Chargement' : n.expanded ? 'Exploré' : 'Explorer';
+    ex.textContent = n.loading ? T('Chargement') : n.expanded ? T('Exploré') : T('Explorer');
     ex.disabled = n.loading || n.expanded;
-    el('alisten').textContent = (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter';
+    el('alisten').textContent = (playing && playing.id === n.id) ? (playing.paused ? T('Reprendre') : T('Pause')) : T('Écouter');
     var narrow = window.matchMedia('(max-width: 640px)').matches;
-    el('atop').textContent = n.showTop ? (narrow ? 'Masquer' : 'Masquer le top') : (narrow ? 'Top ' + topN : 'Top ' + topN + ' titres');
+    el('atop').textContent = n.showTop ? (narrow ? T('Masquer') : T('Masquer le top')) : (narrow ? T('Top {n}', { n: topN }) : T('Top {n} titres', { n: topN }));
     renderTracks(n);
     renderLinks(n);
     renderOut(n);
     var hints = [];
     var few = n.expanded && !n.loading && n.deg <= 3;
-    if (few) hints.push(n.deg === 0 ? 'Deezer ne propose aucun artiste lié.'
-      : 'Deezer ne propose que ' + n.deg + (n.deg > 1 ? ' artistes liés.' : ' artiste lié.'));
-    if (n.ext && n.ext.txt) hints.push(n.ext.txt);
-    if (n.tracksSrc === 'apple' && n.tracks) hints.push('Extraits : Apple (absents chez Deezer).');
-    if (n.tracks === null) hints.push('Aucun extrait disponible' + (n.appleNote ? ' (repli Apple : ' + n.appleNote + ')' : '') + '.');
+    if (few) hints.push(n.deg === 0 ? T('Deezer ne propose aucun artiste lié.')
+      : T(n.deg > 1 ? 'Deezer ne propose que {n} artistes liés.' : 'Deezer ne propose que {n} artiste lié.', { n: n.deg }));
+    if (n.ext && n.ext.txt) hints.push(T(n.ext.txt));
+    if (n.tracksSrc === 'apple' && n.tracks) hints.push(T('Extraits : Apple (absents chez Deezer).'));
+    if (n.tracks === null) {
+      var an = n.appleNote;
+      hints.push(T('Aucun extrait disponible') + (an ? ' (' + T('repli Apple : {m}', { m: T(an[0], an[1] ? { m: T(an[1].m) } : null) }) + ')' : '') + '.');
+    }
     var hb = el('chint');
     hb.textContent = '';
     hints.forEach(function (h) { var d = document.createElement('div'); d.textContent = h; hb.appendChild(d); });
     /* Peu de voisins et sources etendues desactivees : on propose de les essayer. */
     if (few && !extOn) {
       var inv = document.createElement('div');
-      inv.append('Les sources étendues (expérimental) peuvent en trouver d’autres. ');
+      inv.append(T('Les sources étendues (expérimental) peuvent en trouver d’autres. '));
       var tryBtn = document.createElement('button');
-      tryBtn.type = 'button'; tryBtn.className = 'link'; tryBtn.textContent = 'Essayer';
+      tryBtn.type = 'button'; tryBtn.className = 'link'; tryBtn.textContent = T('Essayer');
       tryBtn.addEventListener('click', function () { setExt(true); });
       inv.appendChild(tryBtn);
       hb.appendChild(inv);
@@ -1985,13 +2007,13 @@
     var extLines = n.ext && n.ext.lines;
     el('cext').hidden = !extLines;
     if (extLines) {
-      el('cextsum').textContent = n.ext.sum;
+      el('cextsum').textContent = n.ext.sumf();
       var xl = el('cextl');
       xl.textContent = '';
-      extLines.forEach(function (ln) {
-        var d = document.createElement('div');
+      extLines.forEach(function (fn) {
+        var ln = fn(), d = document.createElement('div');
         if (ln[0] === null) { d.className = 'sub'; d.textContent = ln[1]; }
-        else { var b = document.createElement('b'); b.textContent = ln[0] + ' : '; d.append(b, ln[1]); }
+        else { var b = document.createElement('b'); b.textContent = ln[0] + (LANG === 'en' ? ': ' : ' : '); d.append(b, ln[1]); }
         xl.appendChild(d);
       });
     }
@@ -2023,7 +2045,8 @@
     function add(label, href, direct) {
       var a = document.createElement('a');
       a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      a.title = direct ? label + ' : fiche de l’artiste (lien direct)' : label + ' : rechercher ' + n.name + ' (un homonyme peut apparaître)';
+      a.title = direct ? T('{label} : fiche de l’artiste (lien direct)', { label: label })
+        : T('{label} : rechercher {name} (un homonyme peut apparaître)', { label: label, name: n.name });
       a.setAttribute('aria-label', a.title);
       if (direct) a.className = 'direct';
       var svg = document.createElementNS(NS, 'svg');
@@ -2059,7 +2082,7 @@
     box.hidden = !items.length;
     if (!items.length) return;
     items.sort(function (x, y) { return y.sc.score - x.sc.score; });
-    el('lksum').textContent = 'Liens et compatibilité (' + items.length + ')';
+    el('lksum').textContent = T('Liens et compatibilité ({n})', { n: items.length });
     items.slice(0, 12).forEach(function (it) {
       var pct = Math.round(it.sc.score * 100);
       var li = document.createElement('li');
@@ -2079,7 +2102,7 @@
     });
     if (items.length > 12) {
       var more = document.createElement('li'); more.className = 'more';
-      more.textContent = '+ ' + (items.length - 12) + ' autres liens moins compatibles';
+      more.textContent = T('+ {n} autres liens moins compatibles', { n: items.length - 12 });
       ol.appendChild(more);
     }
   }
@@ -2096,7 +2119,7 @@
       var num = document.createElement('span'); num.className = 'num'; num.textContent = i + 1;
       var title = document.createElement('span'); title.className = 't'; title.textContent = t.title;
       var act = document.createElement('span'); act.className = 'act';
-      act.textContent = !t.url ? '' : (on && !playing.paused) ? 'Pause' : 'Lire';
+      act.textContent = !t.url ? '' : (on && !playing.paused) ? T('Pause') : T('Lire');
       li.append(num, title, act);
       if (t.url) li.addEventListener('click', function () { togglePlay(n, i); }); else li.classList.add('off');
       ol.appendChild(li);
@@ -2145,7 +2168,7 @@
       var d = await dz('/artist/' + n.id + '/top?limit=' + TOP_MAX);
       list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
     } catch (e) {
-      setStatus('Erreur Deezer : ' + e.message);
+      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
       return null;
     }
     n.tracksSrc = 'deezer';
@@ -2153,8 +2176,8 @@
       try {
         var alt = await appleTracks(n);
         if (alt.length) { list = alt; n.tracksSrc = 'apple'; }
-        else n.appleNote = 'aucun titre au nom exact chez Apple';
-      } catch (e) { n.appleNote = 'injoignable (' + (e && e.message ? e.message : 'erreur réseau') + ')'; }
+        else n.appleNote = ['aucun titre au nom exact chez Apple'];
+      } catch (e) { n.appleNote = ['injoignable ({m})', { m: e && e.message ? e.message : 'erreur réseau' }]; }
     }
     n.tracks = list.length ? list : null;
     return n.tracks;
@@ -2209,7 +2232,7 @@
     } catch (e) {
       if (tok === playToken) {
         playing = null; renderCard();
-        el('chint').textContent = 'Lecture bloquée par le navigateur';
+        el('chint').textContent = T('Lecture bloquée par le navigateur');
       }
     }
   }
@@ -2319,7 +2342,7 @@
       var img = document.createElement('img'); img.src = a.picture_small || ''; img.alt = '';
       var name = document.createElement('span'); name.textContent = a.name;
       var fans = document.createElement('small');
-      fans.textContent = typeof a.nb_fan === 'number' ? a.nb_fan.toLocaleString('fr-FR') + ' fans' : '';
+      fans.textContent = typeof a.nb_fan === 'number' ? T('{n} fans', { n: loc(a.nb_fan) }) : '';
       li.append(img, name, fans);
       li.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(a); });
       results.appendChild(li);
@@ -2338,7 +2361,7 @@
         var d = await dz('/search/artist?q=' + encodeURIComponent(v) + '&limit=6');
         if (q.value.trim() !== v) return;
         qList = d.data || []; qSel = qList.length ? 0 : -1; renderResults();
-      } catch (e) { setStatus('Erreur Deezer : ' + e.message); }
+      } catch (e) { setStatus(T('Erreur Deezer : {m}', { m: T(e.message) })); }
     }, 250);
   });
   q.addEventListener('keydown', function (e) {
@@ -2365,8 +2388,8 @@
   async function searchAndAdd(name) {
     try {
       var d = await dz('/search/artist?q=' + encodeURIComponent(name) + '&limit=1');
-      if (d.data && d.data[0]) addRoot(d.data[0]); else setStatus('Aucun artiste trouvé pour ' + name);
-    } catch (e) { setStatus('Erreur Deezer : ' + e.message); }
+      if (d.data && d.data[0]) addRoot(d.data[0]); else setStatus(T('Aucun artiste trouvé pour {name}', { name: name }));
+    } catch (e) { setStatus(T('Erreur Deezer : {m}', { m: T(e.message) })); }
   }
 
   /* ---------- Panneau et divers ---------- */
@@ -2400,9 +2423,9 @@
   var FOCUS_LABELS = ['Tout', '1 saut', '2 sauts', '3 sauts'];
   document.getElementById('focus').addEventListener('input', function (e) {
     focusDepth = +e.target.value;
-    document.getElementById('focusv').textContent = FOCUS_LABELS[focusDepth];
+    document.getElementById('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
     recomputeVisible(); draw();
-    if (focusDepth > 0 && !selected) setStatus('Clique sur un nœud pour choisir le centre du focus');
+    if (focusDepth > 0 && !selected) setStatus(T('Clique sur un nœud pour choisir le centre du focus'));
   });
   document.getElementById('dist').addEventListener('input', function (e) {
     document.getElementById('distv').textContent = e.target.value;
@@ -2420,7 +2443,7 @@
   document.getElementById('clear').addEventListener('click', function () {
     if (!nodes.length) return;
     commit(); clearGraph();
-    setStatus('Carte effacée', 'Annuler', undo);
+    setStatus(T('Carte effacée'), T('Annuler'), undo);
   });
   el('undo').addEventListener('click', undo);
   el('redo').addEventListener('click', redo);
@@ -2465,14 +2488,14 @@
     surprising = true;
     var btn = el('surprise');
     btn.disabled = true;
-    setStatus('Recherche d’un artiste…');
+    setStatus(T('Recherche d’un artiste…'));
     try {
       var a = await pickSurprise();
-      if (!a) throw new Error('aucun artiste trouvé, réessaie');
+      if (!a) throw new Error(T('aucun artiste trouvé, réessaie'));
       commit(); clearGraph();
       addRoot(a, true);
     } catch (e) {
-      setStatus('Erreur Deezer : ' + e.message);
+      setStatus(T('Erreur Deezer : {m}', { m: T(e.message) }));
     } finally {
       surprising = false;
       btn.disabled = false;
@@ -2506,7 +2529,7 @@
 
   var themeBtn = document.getElementById('theme');
   function themeLabel() {
-    var txt = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Mode clair' : 'Mode sombre';
+    var txt = document.documentElement.getAttribute('data-theme') === 'dark' ? T('Mode clair') : T('Mode sombre');
     themeBtn.textContent = txt;
     el('theme2').textContent = txt;
   }
@@ -2535,8 +2558,167 @@
     if (p.open && window.innerWidth < 700 && !p.contains(e.target)) p.open = false;
   });
 
+  /* ---------- Langue : dictionnaire anglais (les cles sont les textes francais) et bascule FR / EN ---------- */
+  EN = {
+    /* page */
+    'Cette page a besoin de JavaScript pour fonctionner.': 'This page needs JavaScript to work.',
+    'Asterism : carte des artistes similaires (dig musical)': 'Asterism: map of similar artists (music digging)',
+    'Asterism est une carte interactive des artistes similaires. Cherche un artiste, ouvre sa fiche, explore ses voisins et écoute un extrait de 30 secondes : chaque clic dessine un peu plus la constellation. Pour essayer :': 'Asterism is an interactive map of similar artists. Search for an artist, open its card, explore its neighbours and listen to a 30-second preview: each click draws a little more of the constellation. To try:',
+    'Surprends-moi': 'Surprise me',
+    'Chercher un artiste': 'Search for an artist',
+    'Asterism, retour à l\'accueil': 'Asterism, back to home',
+    'Langue': 'Language',
+    'English': 'Français',
+    /* reglages */
+    'Réglages': 'Settings',
+    'Distance des liens': 'Link distance',
+    'Score minimal': 'Minimum score',
+    'Score d\'affinité minimal': 'Minimum affinity score',
+    'Titres du top': 'Top tracks',
+    'Nombre de titres affichés dans le top': 'Number of tracks shown in the top',
+    'Petits artistes': 'Small artists',
+    'Popularité maximale : estompe les artistes plus écoutés': 'Maximum popularity: fades out artists with more listeners',
+    'Écoute au survol': 'Play on hover',
+    'Sources étendues': 'Extended sources',
+    'expérimental': 'experimental',
+    'Artistes similaires (Deezer)': 'Similar artists (Deezer)',
+    'Collaboration': 'Collaboration',
+    'Même label': 'Same label',
+    'Même artiste ou groupe': 'Same artist or band',
+    'Confirmé par plusieurs sources': 'Confirmed by several sources',
+    'Décocher un type masque ses liens, et les scores se recalculent avec les types cochés.': 'Unchecking a type hides its links, and scores are recalculated with the checked types.',
+    'Annuler': 'Undo', 'Rétablir': 'Redo', 'Recentrer': 'Re-center', 'Tout effacer': 'Clear all',
+    'Copier le lien': 'Copy link', 'Image PNG': 'PNG image',
+    'Mode sombre': 'Dark mode', 'Mode clair': 'Light mode',
+    'Tout': 'All', '1 saut': '1 hop', '2 sauts': '2 hops', '3 sauts': '3 hops',
+    '{n} masqués': '{n} hidden', '{n} masqué': '{n} hidden',
+    /* fiche */
+    'Fermer': 'Close', 'Réduire ou agrandir la fiche': 'Collapse or expand the card',
+    'Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label, projets) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.': 'The score combines the evidence from each source (Deezer, ListenBrainz, collaboration, label, projects): the more they agree, the higher it climbs. A link backed by a single source stays modest.',
+    '{n} fans': '{n} fans', '{n} liens': '{n} links', '{n} lien': '{n} link',
+    '{vc} liens affichés sur {n}': '{vc} of {n} links shown',
+    'Chargement': 'Loading', 'Exploré': 'Explored', 'Explorer': 'Explore', 'Écouter': 'Listen',
+    'Reprendre': 'Resume', 'Pause': 'Pause', 'Lire': 'Play',
+    'Masquer': 'Hide', 'Masquer le top': 'Hide top', 'Top {n}': 'Top {n}', 'Top {n} titres': 'Top {n} tracks',
+    'Deezer ne propose aucun artiste lié.': 'Deezer has no related artist.',
+    'Deezer ne propose que {n} artistes liés.': 'Deezer only lists {n} related artists.',
+    'Deezer ne propose que {n} artiste lié.': 'Deezer only lists {n} related artist.',
+    'Extraits : Apple (absents chez Deezer).': 'Previews: Apple (none on Deezer).',
+    'Aucun extrait disponible': 'No preview available',
+    'repli Apple : {m}': 'Apple fallback: {m}',
+    'aucun titre au nom exact chez Apple': 'no track under the exact name at Apple',
+    'injoignable ({m})': 'unreachable ({m})',
+    'erreur réseau': 'network error', 'delai depasse': 'timed out', 'reseau': 'network error',
+    'Les sources étendues (expérimental) peuvent en trouver d’autres. ': 'Extended sources (experimental) may find more. ',
+    'Essayer': 'Try',
+    'Lecture bloquée par le navigateur': 'Playback blocked by the browser',
+    '{label} : fiche de l’artiste (lien direct)': '{label}: artist page (direct link)',
+    '{label} : rechercher {name} (un homonyme peut apparaître)': '{label}: search for {name} (a namesake may show up)',
+    'Liens et compatibilité ({n})': 'Links and compatibility ({n})',
+    '+ {n} autres liens moins compatibles': '+ {n} other less compatible links',
+    /* score */
+    'Rang {n} sur 20': 'Rank {n} of 20', 'Lien réciproque': 'Reciprocal link',
+    '{n} % du meilleur voisin': '{n} % of the best neighbour', 'Rang {n} chez ListenBrainz': 'Rank {n} at ListenBrainz',
+    '{n} titres en commun': '{n} shared tracks', '{n} titre en commun': '{n} shared track',
+    'Label : {names}': 'Label: {names}', 'Genres comparables à {n} %': 'Genres {n} % comparable',
+    'Même style (MusicBrainz)': 'Same style (MusicBrainz)',
+    'Même artiste ou groupe (MusicBrainz)': 'Same artist or band (MusicBrainz)',
+    '{s} est membre de {o}': '{s} is a member of {o}', '{s} est un sous-groupe de {o}': '{s} is a subgroup of {o}',
+    '{s} a fondé {o}': '{s} founded {o}', '{s} et {o} : même personne': '{s} and {o}: same person',
+    '{s} et {o} : collaboration': '{s} and {o}: collaboration', '{a} et {b} : {n} %': '{a} and {b}: {n} %',
+    /* sources etendues */
+    'Sources étendues en cours : les nouveaux artistes arrivent ensemble.': 'Extended sources running: new artists will appear together.',
+    'Sources étendues : {done} sur {total} terminées ({name}), les nouveaux artistes apparaissent ensemble…': 'Extended sources: {done} of {total} done ({name}), new artists will appear together…',
+    'Sources étendues : recherche en cours (collaborations, labels, ListenBrainz, MusicBrainz), les nouveaux artistes apparaissent ensemble…': 'Extended sources: searching (collaborations, labels, ListenBrainz, MusicBrainz), new artists will appear together…',
+    'Sources étendues : {n} liens ajoutés': 'Extended sources: {n} links added',
+    'Sources étendues : {n} lien ajouté': 'Extended sources: {n} link added',
+    'Sources étendues : aucun lien ajouté': 'Extended sources: no link added',
+    'Collaborations': 'Collaborations', 'Labels': 'Labels', 'Projets (MusicBrainz)': 'Projects (MusicBrainz)',
+    'indisponibles': 'unavailable', 'indisponible': 'unavailable',
+    '{n} écartés (genre différent ou sans photo)': '{n} discarded (different genre or no photo)',
+    '{n} retrouvés par le style MusicBrainz': '{n} recovered through MusicBrainz style',
+    'style MusicBrainz indisponible, réessaie plus tard': 'MusicBrainz style unavailable, try again later',
+    'artiste absent de MusicBrainz': 'artist not in MusicBrainz', 'aucun voisin': 'no neighbours',
+    'aucune relation enregistrée': 'no relation on record', 'relations sans équivalent Deezer': 'relations with no Deezer match',
+    'Confirmés par plusieurs sources': 'Confirmed by several sources',
+    'collaborations': 'collaborations', 'labels': 'labels',
+    /* menu, statuts, partage */
+    'Nœud supprimé': 'Node removed', '{n} nœuds supprimés': '{n} nodes removed',
+    'Focus sur ce nœud': 'Focus on this node', 'Quitter le focus': 'Exit focus',
+    'Épingler': 'Pin', 'Libérer': 'Unpin', 'Enrichir (sources étendues)': 'Enrich (extended sources)',
+    'Élaguer les feuilles ({n})': 'Prune leaves ({n})', 'Supprimer le nœud': 'Delete node',
+    'Clique sur un nœud pour choisir le centre du focus': 'Click a node to choose the focus centre',
+    'Carte effacée': 'Map cleared', 'Recherche d’un artiste…': 'Looking for an artist…',
+    'aucun artiste trouvé, réessaie': 'no artist found, try again',
+    'Aucun artiste lié pour {name}': 'No related artist for {name}',
+    'Aucun artiste trouvé pour {name}': 'No artist found for {name}',
+    'Erreur Deezer : {m}': 'Deezer error: {m}',
+    '{n} artistes, {k} liens': '{n} artists, {k} links',
+    'Carte partagée chargée : {n} artistes': 'Shared map loaded: {n} artists',
+    'Lien de partage illisible': 'Share link unreadable',
+    'Rien à partager : la carte est vide': 'Nothing to share: the map is empty',
+    'Carte trop grande pour un lien : utilise l’image PNG': 'Map too large for a link: use the PNG image',
+    'Lien copié : {n} artistes, {k} liens': 'Link copied: {n} artists, {k} links',
+    'Copie ce lien :': 'Copy this link:', 'Partage impossible : {m}': 'Sharing failed: {m}',
+    'Rien à exporter : la carte est vide': 'Nothing to export: the map is empty',
+    'Export impossible': 'Export failed', 'Image enregistrée': 'Image saved',
+    'Export impossible : images protégées par le navigateur': 'Export failed: images protected by the browser'
+  };
+
+  /* Traduit le texte et les attributs du HTML statique ; l'original francais est memorise sur chaque noeud pour revenir en arriere.
+     Les zones reconstruites par le code (fiche, statut, menu, infobulle, resultats, valeurs des curseurs) sont traitees a part. */
+  var I18N_SKIP = '#card, #status, #ltip, #menu, #results, .v, #theme, #theme2, #lang, #lang2, script, style, noscript, svg';
+  function trKey(t) { return t.replace(/\s+/g, ' ').trim(); }
+  function trDom(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [], nd;
+    while ((nd = w.nextNode())) list.push(nd);
+    list.forEach(function (t) {
+      if (t.parentElement && t.parentElement.closest(I18N_SKIP)) return;
+      if (t._fr === undefined) {
+        if (!/[A-Za-zÀ-ÿ]/.test(t.nodeValue)) return;
+        t._fr = t.nodeValue;
+      }
+      var lead = /^\s*/.exec(t._fr)[0], trail = /\s*$/.exec(t._fr)[0];
+      t.nodeValue = lead + T(trKey(t._fr)) + trail;
+    });
+    root.querySelectorAll('[aria-label],[placeholder],[title],[alt]').forEach(function (e) {
+      if (e.closest(I18N_SKIP)) return;
+      e._fra = e._fra || {};
+      ['aria-label', 'placeholder', 'title', 'alt'].forEach(function (a) {
+        if (!e.hasAttribute(a)) return;
+        if (e._fra[a] === undefined) e._fra[a] = e.getAttribute(a);
+        e.setAttribute(a, T(trKey(e._fra[a])));
+      });
+    });
+  }
+  function langLabel() {
+    document.querySelectorAll('#lang span').forEach(function (sp) { sp.classList.toggle('on', sp.getAttribute('data-l') === LANG); });
+    el('lang').setAttribute('aria-label', T('Langue'));
+    el('lang').setAttribute('title', T('Langue'));
+    el('lang2').textContent = LANG === 'fr' ? 'English' : 'Français';
+  }
+  var CARD_NOTE_FR = 'Le score combine les preuves de chaque source (Deezer, ListenBrainz, collaboration, label, projets) : plus elles concordent, plus il monte. Un lien porté par une seule source reste modeste.';
+  function applyLang() {
+    document.documentElement.lang = LANG;
+    document.title = T('Asterism : carte des artistes similaires (dig musical)');
+    trDom(document.body);
+    el('cclose').setAttribute('aria-label', T('Fermer'));
+    el('cmin').setAttribute('aria-label', T('Réduire ou agrandir la fiche'));
+    el('clinks').querySelector('.lknote').textContent = T(CARD_NOTE_FR);
+    el('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
+    themeLabel(); langLabel();
+    refresh(); renderCard(); updateFanLabel();
+  }
+  function setLang(l) {
+    LANG = l;
+    try { localStorage.setItem('mg-lang', l); } catch (e) {}
+    applyLang();
+  }
+  el('lang').addEventListener('click', function () { setLang(LANG === 'fr' ? 'en' : 'fr'); });
+  el('lang2').addEventListener('click', function () { setLang(LANG === 'fr' ? 'en' : 'fr'); });
+
   resize();
-  refresh();
+  applyLang();
   if (/^#s=[uz]\./.test(location.hash)) loadShared(location.hash.slice(3));
   else if (location.hash.length > 1) searchAndAdd(decodeURIComponent(location.hash.slice(1)));
 })();
