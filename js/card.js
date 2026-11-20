@@ -555,8 +555,8 @@ function saveMarks() {
 }
 function setMark(n, s) {
   if (marks[n.id] && marks[n.id].s === s) delete marks[n.id];
-  else marks[n.id] = { s: s, name: n.name, t: Date.now() };
-  saveMarks(); renderCard(); draw();
+  else marks[n.id] = { s: s, name: n.name, t: Date.now(), pic: n.pic || '' };
+  saveMarks(); renderCard(); draw(); renderMyList();
 }
 var MARK_LABELS = { later: 'À écouter', liked: 'Aimé', heard: 'Écouté' };
 function renderMarks(n) {
@@ -574,7 +574,7 @@ document.querySelectorAll('#cmarks button[data-mark]').forEach(function (b) {
   b.addEventListener('click', function () { if (selected) setMark(selected, b.getAttribute('data-mark')); });
 });
 el('atour').addEventListener('click', function () { if (selected) startTour(selected); });
-el('marksx').addEventListener('click', function () {
+function exportMarks() {
   var ids = Object.keys(marks);
   if (!ids.length) { toast(T('Aucune écoute marquée pour l’instant')); return; }
   var groups = [['later', T('À écouter')], ['liked', T('Aimé')], ['heard', T('Écouté')]];
@@ -592,6 +592,84 @@ el('marksx').addEventListener('click', function () {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
   toast(T('{n} artistes exportés', { n: ids.length }));
+}
+
+/* ---------- Liste « Mes ecoutes » : tous les artistes marques, filtres par etat ---------- */
+var listFilter = 'all';
+function openMyList() { hideMenu(); el('help').hidden = true; el('mylist').hidden = false; renderMyList(); }
+function closeMyList() { el('mylist').hidden = true; }
+function setMarkById(id, s) {
+  if (!marks[id]) return;
+  if (marks[id].s === s) delete marks[id]; else { marks[id].s = s; marks[id].t = Date.now(); }
+  saveMarks(); renderCard(); draw(); renderMyList();
+}
+async function goToMarked(id) {
+  closeMyList();
+  var n = byId.get(Number(id));
+  if (n && isShown(n)) { select(n); if (typeof ensureOnScreen === 'function') ensureOnScreen(n); return; }
+  try { addRoot(await dz('/artist/' + Number(id))); }
+  catch (e) { dbg('mes ecoutes', e); toast(T('Erreur Deezer : {m}', { m: T(e.message) })); }
+}
+function renderMyList() {
+  var box = el('mylist');
+  if (box.hidden) return;
+  box.textContent = '';
+  box.setAttribute('aria-label', T('Mes écoutes'));
+  var x = document.createElement('button'); x.type = 'button'; x.className = 'hx'; x.textContent = '×';
+  x.setAttribute('aria-label', T('Fermer')); x.addEventListener('click', closeMyList);
+  var h = document.createElement('h2'); h.textContent = T('Mes écoutes');
+  box.append(x, h);
+  var ids = Object.keys(marks), count = { all: ids.length, later: 0, liked: 0, heard: 0 };
+  ids.forEach(function (id) { count[marks[id].s] = (count[marks[id].s] || 0) + 1; });
+  var bar = document.createElement('div'); bar.className = 'mlf';
+  [['all', 'Tout'], ['later', 'À écouter'], ['liked', 'Aimé'], ['heard', 'Écouté']].forEach(function (f) {
+    var b = document.createElement('button'); b.type = 'button';
+    b.textContent = T(f[1]) + ' (' + (count[f[0]] || 0) + ')';
+    b.setAttribute('aria-pressed', listFilter === f[0] ? 'true' : 'false');
+    b.addEventListener('click', function () { listFilter = f[0]; renderMyList(); });
+    bar.appendChild(b);
+  });
+  box.appendChild(bar);
+  var shown = ids.filter(function (id) { return listFilter === 'all' || marks[id].s === listFilter; })
+    .sort(function (a, b) { return marks[b].t - marks[a].t; });
+  if (!shown.length) {
+    var e = document.createElement('div'); e.className = 'mle';
+    e.textContent = ids.length ? T('Aucun artiste dans cette catégorie.')
+      : T('Aucun artiste marqué. Dans la fiche d’un artiste, choisis « À écouter », « Aimé » ou « Écouté ».');
+    box.appendChild(e);
+  } else {
+    var ul = document.createElement('ul');
+    shown.forEach(function (id) {
+      var m = marks[id], li = document.createElement('li');
+      var img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+      if (m.pic) img.src = m.pic;
+      var nm = document.createElement('button'); nm.type = 'button'; nm.className = 'link nm'; nm.textContent = m.name;
+      nm.title = T('Ouvrir {name} sur la carte', { name: m.name });
+      nm.addEventListener('click', function () { goToMarked(id); });
+      var st = document.createElement('div'); st.className = 'st';
+      ['later', 'liked', 'heard'].forEach(function (k) {
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = T(MARK_LABELS[k]);
+        b.setAttribute('aria-pressed', m.s === k ? 'true' : 'false');
+        b.addEventListener('click', function () { setMarkById(id, k); });
+        st.appendChild(b);
+      });
+      var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
+      rm.title = T('Retirer de la liste'); rm.setAttribute('aria-label', rm.title);
+      rm.addEventListener('click', function () { delete marks[id]; saveMarks(); renderCard(); draw(); renderMyList(); });
+      li.append(img, nm, st, rm); ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+  var foot = document.createElement('div'); foot.className = 'mlx';
+  var note = document.createElement('span'); note.textContent = T('Gardé dans ce navigateur uniquement.');
+  var ex = document.createElement('button'); ex.type = 'button'; ex.textContent = T('Exporter en texte');
+  ex.disabled = !ids.length; ex.addEventListener('click', exportMarks);
+  foot.append(note, ex); box.appendChild(foot);
+}
+el('mylistbtn').addEventListener('click', openMyList);
+document.addEventListener('pointerdown', function (e) {
+  var b = el('mylist');
+  if (!b.hidden && !b.contains(e.target) && !el('mylistbtn').contains(e.target)) closeMyList();
 });
 
 /* Repli : quand Deezer n'a aucun extrait, l'API de recherche d'Apple (iTunes, sans cle, CORS ouvert) en fournit

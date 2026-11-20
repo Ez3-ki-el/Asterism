@@ -252,7 +252,7 @@ window.addEventListener('keydown', function (e) {
     return;
   }
   if (e.key === 'Escape') {
-    if (!el('help').hidden) hideHelp(); else { hideMenu(); select(null); }
+    if (!el('mylist').hidden) closeMyList(); else if (!el('help').hidden) hideHelp(); else { hideMenu(); select(null); }
     return;
   }
   var tg = e.target, tag = (tg && tg.tagName) || '';

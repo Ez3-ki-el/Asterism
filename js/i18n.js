@@ -124,7 +124,10 @@ EN = {
   'Double-clique un artiste pour voir ses voisins. « ? » ouvre l’aide.': 'Double-click an artist to see its neighbours. "?" opens help.',
   'Recherche étendue : {name}': 'Extended search: {name}', 'en cours': 'running', 'terminé': 'done', '+ {n} autres': '+ {n} more',
   'Les nouveaux artistes apparaîtront tous ensemble à la fin.': 'New artists will all appear together at the end.',
-  'Mes écoutes': 'My listening', 'À écouter': 'To listen', 'Aimé': 'Liked', 'Écouté': 'Listened',
+  'Mes écoutes': 'My listening', 'Aucun artiste dans cette catégorie.': 'No artist in this category.',
+  'Aucun artiste marqué. Dans la fiche d’un artiste, choisis « À écouter », « Aimé » ou « Écouté ».': 'No artist marked yet. On an artist card, choose "To listen", "Liked" or "Listened".',
+  'Ouvrir {name} sur la carte': 'Open {name} on the map', 'Retirer de la liste': 'Remove from the list',
+  'Gardé dans ce navigateur uniquement.': 'Kept in this browser only.', 'Exporter en texte': 'Export as text', 'À écouter': 'To listen', 'Aimé': 'Liked', 'Écouté': 'Listened',
   'Exporter mes écoutes': 'Export my listening', 'Aucune écoute marquée pour l’instant': 'Nothing marked yet',
   '{n} artistes exportés': '{n} artists exported',
   'Écouter ses voisins': 'Play its neighbours', 'Écoute de la carte': 'Map listening',
@@ -183,7 +186,7 @@ function applyLang() {
   el('clinks').querySelector('.lknote').textContent = T(CARD_NOTE_FR);
   el('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
   themeLabel(); langLabel();
-  refresh(); renderCard(); updateFanLabel(); renderProg();
+  refresh(); renderCard(); updateFanLabel(); renderProg(); renderMyList();
 }
 function setLang(l) {
   LANG = l;
