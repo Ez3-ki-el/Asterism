@@ -113,7 +113,8 @@
   #panel > summary::-webkit-details-marker { display: none; }
   #panel > summary::before { content: "+"; display: inline-block; width: 1.4em; }
   #panel[open] > summary::before { content: "\2212"; }
-  #panel .pbody { max-height: calc(100vh - 150px); overflow-y: auto; margin-top: 4px; }
+  /* Marge intérieure compensée par une marge négative : la graduation (« 100 ») et le bout des curseurs ne sont plus rognés. */
+  #panel .pbody { max-height: calc(100vh - 150px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; margin: 4px -12px 0; }
   /* Accordeons du panneau : un seul groupe ouvert a la fois (attribut name). */
   #panel .grp { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 2px; }
   #panel .grp > summary { cursor: pointer; list-style: none; user-select: none; padding: 6px 0; font-size: 12px; }
@@ -306,8 +307,8 @@
     #panel > summary::before { content: "\22EF"; width: auto; font-size: 20px; line-height: 1; }
     #panel[open] > summary::before { content: "\00D7"; font-size: 26px; }
     #panel .pbody { position: absolute; top: 46px; right: 0; width: min(270px, calc(100vw - 28px));
-      background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; margin-top: 0;
-      max-height: calc(100vh - 70px); overflow-y: auto; }
+      background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; margin: 0;
+      max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: hidden; }
     .only-narrow { display: flex !important; }
     #theme, #lang { display: none; }
 
