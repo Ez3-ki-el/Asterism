@@ -127,9 +127,9 @@ try {
   if (savedKinds) ['d', 'c', 'e', 'l', 'p', 'r'].forEach(function (c) { if (savedKinds[c] === false) kindsOn[c] = false; });
 } catch (e) { dbg('ignore', e); }
 try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) { dbg('ignore', e); }
-/* Sources etendues decochees : seuls les liens Deezer restent visibles ; cocher la case (reglages, ou « Essayer » de la fiche)
-   reaffiche les autres, avec les types choisis dans la legende. */
-function kOn(c) { return c === 'd' || (extOn && kindsOn[c]); }
+/* Sources etendues decochees : seuls les liens Deezer restent visibles (la legende est alors cachee, donc toujours affiches).
+   Sources etendues cochees : chaque type, Deezer compris, suit sa case dans la legende. */
+function kOn(c) { return c === 'd' ? (!extOn || kindsOn.d) : (extOn && kindsOn[c]); }
 /* Nombre de voisins Deezer d'un artiste (liens de type d), quelle que soit la visibilite des autres types. */
 function dDeg(n) {
   var c = 0;
