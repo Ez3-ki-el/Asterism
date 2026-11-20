@@ -411,11 +411,25 @@
       document.head.appendChild(s);
     });
   }
-  function dz(path) {
-    return jsonp('https://api.deezer.com' + path).then(function (d) {
-      if (d && d.error) throw new Error(d.error.message || ('erreur ' + d.error.code));
+  /* Deezer repond "quota depasse" (code 4) au-dela d'environ 50 requetes par 5 secondes : on reessaie un peu plus tard. */
+  async function dz(path) {
+    for (var attempt = 0; ; attempt++) {
+      var d = await jsonp('https://api.deezer.com' + path);
+      if (d && d.error) {
+        if (d.error.code === 4 && attempt < 3) { await new Promise(function (r) { setTimeout(r, 1200 * (attempt + 1)); }); continue; }
+        throw new Error(d.error.message || ('erreur ' + d.error.code));
+      }
       return d;
-    });
+    }
+  }
+  /* Version cadencee (une requete toutes les 110 ms) pour les sources etendues, qui lancent beaucoup d'appels en parallele
+     sans retarder les actions directes de l'utilisateur (explorer, rechercher). */
+  var dzNext = 0;
+  async function dzp(path) {
+    var wait = Math.max(0, dzNext - Date.now());
+    dzNext = Date.now() + wait + 110;
+    if (wait) await new Promise(function (r) { setTimeout(r, wait); });
+    return dz(path);
   }
 
   /* ---------- Etat du graphe ---------- */
@@ -474,8 +488,8 @@
     return lk._ek;
   }
   /* Un lien est visible si un de ses types est coche et si son score atteint le seuil des reglages. */
-  function ekOf(lk) { return lk.w >= minScore ? ekRaw(lk) : ''; }
-  function isShown(n) { return !shown || shown.has(n.id); }
+  function ekOf(lk) { return (!lk.hold && lk.w >= minScore) ? ekRaw(lk) : ''; }
+  function isShown(n) { return !n.hold && (!shown || shown.has(n.id)); }
   function vis(n) { return (!visible || visible.has(n.id)) && isShown(n); }
   /* Un noeud n'est affiche que s'il garde un lien visible, sauf racine, selection et noeud sans lien. */
   function recomputeShown() {
@@ -521,11 +535,22 @@
     setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
   }
 
+  /* Retenue : les artistes et liens trouves par les sources etendues restent masques (hold = identifiant de l'artiste
+     enrichi) jusqu'a la fin de toutes les sources, puis apparaissent ensemble (releaseHold). */
+  var holdTok = 0, fadeUntil = 0, FADE_MS = 500;
+  function held(tok, fn) { holdTok = tok; try { fn(); } finally { holdTok = 0; } }
+  function fadeOf(o) {
+    if (!o.born) return 1;
+    var t = (performance.now() - o.born) / FADE_MS;
+    if (t >= 1) { o.born = 0; return 1; }
+    return t * t * (3 - 2 * t);
+  }
+
   function ensureNode(a, x, y) {
     var n = byId.get(a.id);
     if (n) return n;
     n = {
-      id: a.id, name: a.name, pic: a.picture_medium || a.picture_big || a.picture || '',
+      id: a.id, name: a.name, pic: a.picture_medium || a.picture_big || a.picture || '', hold: holdTok,
       fans: a.nb_fan, deg: 0, expanded: false, loading: false,
       x: x + (Math.random() - 0.5) * 24, y: y + (Math.random() - 0.5) * 24, track: undefined
     };
@@ -605,13 +630,32 @@
       ex.w = scoreOf(ex).score;
       return ex;
     }
-    var lk = { source: a.id, target: b.id, k: kind, w: 0, ev: mergeEv(null, ev) || null };
+    var lk = { source: a.id, target: b.id, k: kind, w: 0, ev: mergeEv(null, ev) || null, hold: holdTok };
     lk.w = scoreOf(lk).score;
     linkKeys.set(key, lk);
     links.push(lk);
+    if (!lk.hold) connect(lk, a, b);
+    return lk;
+  }
+  /* Degre et voisinage ne comptent un lien retenu qu'au moment ou il apparait. */
+  function connect(lk, a, b) {
     a.deg++; b.deg++;
     adj.get(a.id).add(b.id); adj.get(b.id).add(a.id);
-    return lk;
+  }
+  function releaseHold(tok) {
+    var now = performance.now(), any = false;
+    nodes.forEach(function (n) { if (n.hold === tok) { n.hold = 0; n.born = now; any = true; } });
+    links.forEach(function (lk) {
+      if (lk.hold !== tok) return;
+      lk.hold = 0; lk.born = now; any = true;
+      var a = byId.get(idOf(lk.source)), b = byId.get(idOf(lk.target));
+      if (a && b) connect(lk, a, b);
+    });
+    if (!any) return;
+    fadeUntil = now + FADE_MS + 60;
+    recomputeShown(); recomputeVisible(); updateLegend();
+    sim.alpha(0.5).restart();
+    startAnim();
   }
 
   async function expand(n, silent) {
@@ -672,7 +716,7 @@
 
   /* Collaborations : les autres participants des titres les plus ecoutes de l'artiste. */
   async function enrichCollab(n, g) {
-    var d = await dz('/artist/' + n.id + '/top?limit=50');
+    var d = await dzp('/artist/' + n.id + '/top?limit=50');
     if (!alive(n, g)) return;
     var cnt = new Map(), objs = new Map();
     (d.data || []).forEach(function (t) {
@@ -684,28 +728,20 @@
     });
     var ranked = Array.from(cnt.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 12);
     if (!ranked.length) return;
-    var max = ranked[0][1];
-    ranked.forEach(function (e) {
-      var c = objs.get(e[0]);
-      var m = byId.get(e[0]) || ensureNode(
-        { id: c.id, name: c.name, picture_medium: c.picture_medium || c.picture, nb_fan: c.nb_fan }, n.x, n.y);
-      addLink(n, m, 'c', 0, { c: { count: e[1] } });
+    held(n.id, function () {
+      ranked.forEach(function (e) {
+        var c = objs.get(e[0]);
+        var m = byId.get(e[0]) || ensureNode(
+          { id: c.id, name: c.name, picture_medium: c.picture_medium || c.picture, nb_fan: c.nb_fan }, n.x, n.y);
+        addLink(n, m, 'c', 0, { c: { count: e[1] } });
+      });
     });
     syncSim();
   }
 
   /* ListenBrainz : artiste Deezer -> identifiant MusicBrainz (lien Deezer enregistre), puis voisins avec score. */
   async function enrichLB(n, g) {
-    if (n.mbid === undefined) {
-      var res = 'https://www.deezer.com/artist/' + n.id;
-      var r = await mbJson('https://musicbrainz.org/ws/2/url?resource=' + encodeURIComponent(res) + '&inc=artist-rels&fmt=json');
-      n.mbid = null;
-      if (r && r.relations) {
-        for (var i = 0; i < r.relations.length; i++) {
-          if (r.relations[i].artist) { n.mbid = r.relations[i].artist.id; break; }
-        }
-      }
-    }
+    await ensureMbid(n);
     if (!alive(n, g)) return 'stop';
     if (!n.mbid) return 'nomb';
     var resp = await fetch('https://labs.api.listenbrainz.org/similar-artists/json?artist_mbids=' + n.mbid + '&algorithm=' + LB_ALGO);
@@ -717,23 +753,31 @@
     var byName = new Map();
     nodes.forEach(function (m) { byName.set(normName(m.name), m); });
     var extra = [];
-    items.forEach(function (it, idx) {
-      it._rank = idx + 1;
-      var m = byName.get(normName(it.name));
-      if (m && m !== n) addLink(n, m, 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
-      else if (!m) extra.push(it);
+    held(n.id, function () {
+      items.forEach(function (it, idx) {
+        it._rank = idx + 1;
+        var m = byName.get(normName(it.name));
+        if (m && m !== n) addLink(n, m, 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
+        else if (!m) extra.push(it);
+      });
     });
     syncSim();
-    for (var j = 0; j < Math.min(8, extra.length); j++) {
-      var it = extra[j];
-      var sr = await dz('/search/artist?q=' + encodeURIComponent(it.name) + '&limit=5');
-      if (!alive(n, g)) return 'stop';
-      var hit = (sr.data || []).filter(function (x) { return normName(x.name) === normName(it.name); })
-        .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0];
-      if (!hit) continue;
-      addLink(n, byId.get(hit.id) || ensureNode(hit, n.x, n.y), 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
-      syncSim();
-    }
+    /* Les voisins inconnus du graphe sont cherches chez Deezer en parallele, puis ajoutes d'un seul coup. */
+    var found = await Promise.all(extra.slice(0, 8).map(function (it) {
+      return dzp('/search/artist?q=' + encodeURIComponent(it.name) + '&limit=5').then(function (sr) {
+        return (sr.data || []).filter(function (x) { return normName(x.name) === normName(it.name); })
+          .sort(function (a, b) { return (b.nb_fan || 0) - (a.nb_fan || 0); })[0];
+      }, function () { return null; });
+    }));
+    if (!alive(n, g)) return 'stop';
+    held(n.id, function () {
+      found.forEach(function (hit, j) {
+        if (!hit) return;
+        var it = extra[j];
+        addLink(n, byId.get(hit.id) || ensureNode(hit, n.x, n.y), 'l', 0, { l: { score: it.score || 0, top: top, rank: it._rank } });
+      });
+    });
+    syncSim();
     return 'ok';
   }
 
@@ -745,13 +789,16 @@
 
   /* Profil de genres des albums d'un artiste (genre_id Deezer -> nombre d'albums). */
   var genreCache = new Map();
-  async function genreProfile(id) {
+  function genreProfile(id) {
     if (genreCache.has(id)) return genreCache.get(id);
-    var d = (await dz('/artist/' + id + '/albums?limit=50')).data || [];
-    var m = new Map();
-    d.forEach(function (a) { if (a.genre_id > 0) m.set(a.genre_id, (m.get(a.genre_id) || 0) + 1); });
-    genreCache.set(id, m);
-    return m;
+    var p = dzp('/artist/' + id + '/albums?limit=50').then(function (r) {
+      var m = new Map();
+      (r.data || []).forEach(function (a) { if (a.genre_id > 0) m.set(a.genre_id, (m.get(a.genre_id) || 0) + 1); });
+      return m;
+    });
+    genreCache.set(id, p);
+    p.catch(function () { genreCache.delete(id); });
+    return p;
   }
   /* Un artiste sans photo chez Deezer (adresse d'image vide, ou empreinte MD5 d'un fichier vide)
      est en general un profil cree par un distributeur : trop peu fiable pour un lien de label. */
@@ -795,17 +842,22 @@
     return parts.join(' ');
   }
   /* Identifiant MusicBrainz d'un artiste Deezer, par le lien Deezer enregistre dans MusicBrainz. */
-  async function ensureMbid(n) {
-    if (n.mbid !== undefined) return n.mbid;
-    var r = await mbJson('https://musicbrainz.org/ws/2/url?resource=' +
-      encodeURIComponent('https://www.deezer.com/artist/' + n.id) + '&inc=artist-rels&fmt=json');
-    n.mbid = null;
-    if (r && r.relations) {
-      for (var i = 0; i < r.relations.length; i++) {
-        if (r.relations[i].artist) { n.mbid = r.relations[i].artist.id; break; }
+  /* Une seule requete a la fois par artiste : les labels et ListenBrainz tournent en parallele et partagent la reponse. */
+  function ensureMbid(n) {
+    if (n.mbid !== undefined) return Promise.resolve(n.mbid);
+    if (n.mbidP) return n.mbidP;
+    n.mbidP = mbJson('https://musicbrainz.org/ws/2/url?resource=' +
+      encodeURIComponent('https://www.deezer.com/artist/' + n.id) + '&inc=artist-rels&fmt=json').then(function (r) {
+      n.mbid = null;
+      if (r && r.relations) {
+        for (var i = 0; i < r.relations.length; i++) {
+          if (r.relations[i].artist) { n.mbid = r.relations[i].artist.id; break; }
+        }
       }
-    }
-    return n.mbid;
+      n.mbidP = null;
+      return n.mbid;
+    }, function (e) { n.mbidP = null; throw e; });
+    return n.mbidP;
   }
   async function mbTextsByName(names) {
     var q = names.map(function (s) { return 'artist:"' + String(s).replace(/["\\]/g, ' ') + '"'; }).join(' OR ');
@@ -826,15 +878,15 @@
      MusicBrainz rejoint celle de l'artiste (ex. psytrance). Compteurs : n.ext.rej et n.ext.res. */
   var LABEL_MIN_COS = 0.75;
   async function enrichLabel(n, g) {
-    var albs = (await dz('/artist/' + n.id + '/albums?limit=6')).data || [];
+    var albs = (await dzp('/artist/' + n.id + '/albums?limit=6')).data || [];
     if (!alive(n, g)) return [];
     var labels = new Map();
-    for (var i = 0; i < Math.min(4, albs.length); i++) {
-      var info = await dz('/album/' + albs[i].id);
-      if (!alive(n, g)) return [];
+    var infos = await Promise.all(albs.slice(0, 4).map(function (al) { return dzp('/album/' + al.id); }));
+    if (!alive(n, g)) return [];
+    infos.forEach(function (info) {
       var lab = info.label && String(info.label).trim();
       if (lab && !GENERIC_LABELS.test(lab)) labels.set(lab, (labels.get(lab) || 0) + 1);
-    }
+    });
     var ranked = Array.from(labels.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 2);
     if (!ranked.length) return [];
     var srcProf = await genreProfile(n.id);
@@ -850,10 +902,11 @@
     } catch (e) { mbFailed = true; /* pas de description : on se contente des genres Deezer */ }
     if (!alive(n, g)) return [];
     var used = [], rejected = 0, rescued = 0;
-    for (var j = 0; j < ranked.length; j++) {
-      var name = ranked[j][0];
-      var found = (await dz('/search/album?q=' + encodeURIComponent('label:"' + name + '"') + '&limit=50')).data || [];
-      if (!alive(n, g)) return used;
+    /* Les deux labels sont traites en parallele ; les noeuds ne sont crees qu'une fois les verdicts connus. */
+    await Promise.all(ranked.map(async function (rk) {
+      var name = rk[0];
+      var found = (await dzp('/search/album?q=' + encodeURIComponent('label:"' + name + '"') + '&limit=50')).data || [];
+      if (!alive(n, g)) return;
       var roster = new Map();
       found.forEach(function (a) {
         var ar = a.artist || {};
@@ -863,22 +916,23 @@
         roster.set(ar.id, ent);
       });
       var size = roster.size;
-      if (!size) continue;
-      var base = Math.max(0.1, Math.min(0.6, 1 / (1 + size / 10)));
+      if (!size) return;
       var cap = (size >= 40 || found.length >= 50) ? 3 : 6, added = 0, kept = 0;
       var cands = Array.from(roster.values()).sort(function (a, b) { return b.c - a.c; }).slice(0, 12);
-      var scored = [];
-      for (var k = 0; k < cands.length; k++) {
-        var cd = cands[k];
-        if (!hasPicture(cd.a)) { rejected++; continue; }
-        var prof = await genreProfile(cd.a.id);
-        if (!alive(n, g)) return used;
-        scored.push({ ent: cd, cos: srcProf.size ? cosine(srcProf, prof) : 1, match: false });
-      }
+      var withPic = cands.filter(function (cd) {
+        if (hasPicture(cd.a)) return true;
+        rejected++;
+        return false;
+      });
+      var profs = await Promise.all(withPic.map(function (cd) { return genreProfile(cd.a.id); }));
+      if (!alive(n, g)) return;
+      var scored = withPic.map(function (cd, idx) {
+        return { ent: cd, cos: srcProf.size ? cosine(srcProf, profs[idx]) : 1, match: false };
+      });
       if (scored.length && srcText) {
         var texts;
         try { texts = await mbTextsByName(scored.map(function (x) { return x.ent.a.name; })); } catch (e) { texts = new Map(); mbFailed = true; }
-        if (!alive(n, g)) return used;
+        if (!alive(n, g)) return;
         scored.forEach(function (x) {
           var t = texts.get(normName(x.ent.a.name));
           x.match = !!(t && styleMatch(srcText, t));
@@ -892,20 +946,22 @@
       });
       /* Un style qui correspond passe avant la simple ressemblance des genres Deezer. */
       accepted.sort(function (a, b) { return ((b.match ? 1 : 0) + b.cos) - ((a.match ? 1 : 0) + a.cos); });
-      accepted.forEach(function (x) {
-        var m = byId.get(x.ent.a.id);
-        if (!m) {
-          if (added >= cap) return;
-          m = ensureNode({ id: x.ent.a.id, name: x.ent.a.name, picture_medium: x.ent.a.picture_medium || x.ent.a.picture,
-            nb_fan: x.ent.a.nb_fan }, n.x, n.y);
-          added++;
-        }
-        addLink(n, m, 'e', 0, { e: { labels: [name], cos: x.cos, match: x.match, size: size } });
-        kept++;
+      held(n.id, function () {
+        accepted.forEach(function (x) {
+          var m = byId.get(x.ent.a.id);
+          if (!m) {
+            if (added >= cap) return;
+            m = ensureNode({ id: x.ent.a.id, name: x.ent.a.name, picture_medium: x.ent.a.picture_medium || x.ent.a.picture,
+              nb_fan: x.ent.a.nb_fan }, n.x, n.y);
+            added++;
+          }
+          addLink(n, m, 'e', 0, { e: { labels: [name], cos: x.cos, match: x.match, size: size } });
+          kept++;
+        });
       });
       if (kept) used.push(name);
       syncSim();
-    }
+    }));
     if (n.ext) { n.ext.rej = rejected; n.ext.res = rescued; n.ext.mbfail = mbFailed; }
     return used;
   }
@@ -913,13 +969,28 @@
   async function enrich(n) {
     if (!extOn) return;
     var g = gen;
-    n.ext = { txt: '' };
-    setStatus('Sources étendues : recherche…', null, null, 'msg');
-    var collabFailed = false, lb;
-    try { await enrichCollab(n, g); } catch (e) { collabFailed = true; }
-    var labelsUsed = [], labelFailed = false;
-    try { labelsUsed = await enrichLabel(n, g); } catch (e) { labelFailed = true; }
-    try { lb = await enrichLB(n, g); } catch (e) { lb = 'err'; }
+    n.ext = { txt: 'Sources étendues en cours : de nouveaux artistes vont apparaître tous ensemble.' };
+    n.enriching = true; startAnim();
+    var total = 3, done = 0;
+    function progress(name) {
+      done++;
+      if (!alive(n, g) || done >= total) return;
+      setStatus('Sources étendues : ' + done + ' sur ' + total + ' terminées (' + name + '), les nouveaux artistes apparaissent ensemble…', null, null, 'msg');
+    }
+    setStatus('Sources étendues : recherche en cours (collaborations, labels, ListenBrainz), les nouveaux artistes apparaissent ensemble…', null, null, 'msg');
+    if (selected === n) renderCard();
+    var collabFailed = false, lb, labelsUsed = [], labelFailed = false;
+    try {
+      /* Les trois sources partent en meme temps ; leurs ajouts restent retenus jusqu'a la fin de la derniere. */
+      await Promise.all([
+        enrichCollab(n, g).catch(function () { collabFailed = true; }).then(function () { progress('collaborations'); }),
+        enrichLabel(n, g).then(function (u) { labelsUsed = u; }, function () { labelFailed = true; }).then(function () { progress('labels'); }),
+        enrichLB(n, g).then(function (r) { lb = r; }, function () { lb = 'err'; }).then(function () { progress('ListenBrainz'); })
+      ]);
+    } finally {
+      n.enriching = false;
+      if (gen === g) releaseHold(n.id);   /* meme si l'artiste a ete supprime entre-temps : rien ne doit rester masque */
+    }
     if (!alive(n, g)) return;
     var c = 0, l = 0, both = 0, eCount = 0;
     links.forEach(function (lk) {
@@ -1011,7 +1082,7 @@
       var multi = ek.length > 1, wgt = 1 + (l.w || 0) * 0.8;
       ctx.beginPath();
       ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
-      ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1);
+      ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1) * fadeOf(l);
       ctx.strokeStyle = multi ? C.ink : C.link;
       ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
       ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
@@ -1042,6 +1113,7 @@
       if (!isShown(n)) continue;
       var v = vis(n), a = v ? 1 : 0.07;
       if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
+      a *= fadeOf(n);
       ctx.globalAlpha = a;
       var r = R(n), hot = (n === f || n.root);
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
@@ -1084,6 +1156,16 @@
         var pr = R(n) + 4 + Math.sin(now / 160) * 2;
         ctx.beginPath(); ctx.arc(n.x, n.y, pr, 0, 6.2832);
         ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
+      }
+      /* Sources etendues en cours : anneau en pointilles qui tourne autour de l'artiste, les nouveaux voisins arrivent ensemble. */
+      if (n.enriching) {
+        var er = R(n) + 7 / k + 3;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(n.x, n.y, er, 0, 6.2832);
+        ctx.setLineDash([4 / k, 5 / k]); ctx.lineDashOffset = -now / 60 / k;
+        ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6 / k; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(now / 300);
+        ctx.stroke();
+        ctx.restore();
       }
     }
 
@@ -1153,7 +1235,7 @@
         if (clash) continue;
       }
       placed.push([bx0, by0, bx1, by1]);
-      ctx.globalAlpha = cand[i].strong ? 1 : base;
+      ctx.globalAlpha = (cand[i].strong ? 1 : base) * fadeOf(n);
       ctx.fillText(n.name, n.x, n.y + R(n) + 4 / k);
     }
     ctx.globalAlpha = 1;
@@ -1164,7 +1246,8 @@
   function startAnim() { if (anim) return; anim = true; requestAnimationFrame(loop); }
   function loop() {
     draw();
-    var busy = nodes.some(function (n) { return n.loading; }) || (playing && !playing.paused);
+    var busy = nodes.some(function (n) { return n.loading || n.enriching; }) || (playing && !playing.paused)
+      || performance.now() < fadeUntil;
     if (busy) requestAnimationFrame(loop); else anim = false;
   }
 
@@ -1366,7 +1449,7 @@
     s.nodes.forEach(function (d) {
       var n = old.get(d.id);
       if (n) {
-        n.deg = 0; n.ext = undefined;
+        n.deg = 0; n.ext = undefined; n.hold = 0; n.born = 0; n.enriching = false;
         nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
       } else {
         n = ensureNode({ id: d.id, name: d.name, picture_medium: d.pic, nb_fan: d.fans }, d.x, d.y);
