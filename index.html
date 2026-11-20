@@ -108,11 +108,23 @@
   #results li:hover small, #results li.sel small { color: inherit; opacity: 0.7; }
 
   #panel { position: absolute; top: 20px; right: 20px; width: 220px; padding: 10px 14px 14px; }
-  #panel summary { cursor: pointer; list-style: none; user-select: none; color: var(--muted);
+  #panel > summary { cursor: pointer; list-style: none; user-select: none; color: var(--muted);
     text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; }
-  #panel summary::-webkit-details-marker { display: none; }
-  #panel summary::before { content: "+"; display: inline-block; width: 1.4em; }
-  #panel[open] summary::before { content: "\2212"; }
+  #panel > summary::-webkit-details-marker { display: none; }
+  #panel > summary::before { content: "+"; display: inline-block; width: 1.4em; }
+  #panel[open] > summary::before { content: "\2212"; }
+  #panel .pbody { max-height: calc(100vh - 150px); overflow-y: auto; margin-top: 4px; }
+  /* Accordeons du panneau : un seul groupe ouvert a la fois (attribut name). */
+  #panel .grp { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 2px; }
+  #panel .grp > summary { cursor: pointer; list-style: none; user-select: none; padding: 6px 0; font-size: 12px; }
+  #panel .grp > summary::-webkit-details-marker { display: none; }
+  #panel .grp > summary::before { content: "+"; display: inline-block; width: 1.4em; color: var(--muted); }
+  #panel .grp[open] > summary::before { content: "\2212"; }
+  #panel .grp > summary:hover { color: var(--accent); }
+  #panel .pbody > .grp:first-child { border-top: 0; margin-top: 0; }
+  #panel .grp > summary + label, #panel .grp > summary + .row { margin-top: 4px; }
+  #panel .grp > .row { margin-top: 8px; }
+  #panel .grp > .row:last-child { margin-bottom: 4px; }
   #panel label { display: block; margin-top: 14px; }
   #panel label .v { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
   #panel .row { display: flex; gap: 8px; margin-top: 16px; }
@@ -132,8 +144,8 @@
   /* Cadre orange qui pulse doucement : invite a essayer les sources etendues (voir updateNudge). */
   @keyframes nudge { 0%, 100% { outline-color: color-mix(in srgb, var(--accent) 22%, transparent); } 50% { outline-color: var(--accent); } }
   #panel label.nudge { outline: 1px solid var(--accent); outline-offset: 5px; animation: nudge 2.4s ease-in-out infinite; }
-  #panel:not([open]).nudge summary { outline: 1px solid var(--accent); outline-offset: 3px; animation: nudge 2.4s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { #panel label.nudge, #panel:not([open]).nudge summary { animation: none; } }
+  #panel:not([open]).nudge > summary, #panel .grp.nudge:not([open]) > summary { outline: 1px solid var(--accent); outline-offset: 3px; animation: nudge 2.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #panel label.nudge, #panel:not([open]).nudge > summary, #panel .grp.nudge:not([open]) > summary { animation: none; } }
   #panel .tag { color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; }
   #panel .legend { color: var(--muted); font-size: 11px; line-height: 1.4; margin-top: 8px; }
   #panel .legend[hidden] { display: none; }
@@ -263,7 +275,8 @@
     #card li { padding: 12px 0; }
     #menu li { padding: 14px 18px; }
     #results li { padding: 12px 10px; }
-    #panel summary { padding: 6px 0; }
+    #panel > summary { padding: 6px 0; }
+    #panel .grp > summary { padding: 12px 0; }
     #panel .row button { padding: 12px 8px; }
     input[type=range] { height: 30px; }
     input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -11px; }
@@ -287,13 +300,14 @@
     #surprise .lbl { display: none; }
 
     #panel { top: 14px; right: 14px; width: auto; padding: 0; border: 0; background: transparent; z-index: 8; }
-    #panel summary { width: 40px; height: 40px; border: 1px solid var(--ink); background: var(--bg);
+    #panel > summary { width: 40px; height: 40px; border: 1px solid var(--ink); background: var(--bg);
       display: flex; align-items: center; justify-content: center; font-size: 0; letter-spacing: 0;
       color: var(--ink); }
-    #panel summary::before { content: "\22EF"; width: auto; font-size: 20px; line-height: 1; }
-    #panel[open] summary::before { content: "\00D7"; font-size: 26px; }
+    #panel > summary::before { content: "\22EF"; width: auto; font-size: 20px; line-height: 1; }
+    #panel[open] > summary::before { content: "\00D7"; font-size: 26px; }
     #panel .pbody { position: absolute; top: 46px; right: 0; width: min(270px, calc(100vw - 28px));
-      background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; }
+      background: var(--bg); border: 1px solid var(--ink); padding: 0 14px 14px; margin-top: 0;
+      max-height: calc(100vh - 70px); overflow-y: auto; }
     .only-narrow { display: flex !important; }
     #theme, #lang { display: none; }
 
@@ -341,6 +355,8 @@
   <details id="panel" class="box" open>
     <summary aria-label="Réglages">Réglages</summary>
     <div class="pbody">
+      <details class="grp" name="pg" open>
+        <summary>Affichage</summary>
       <label>Focus <span class="v" id="focusv">Tout</span>
         <input id="focus" type="range" min="0" max="3" step="1" value="0">
       </label>
@@ -351,13 +367,19 @@
         <input id="minscore" type="range" min="0" max="100" step="5" value="0" aria-label="Score d'affinité minimal">
       </label>
       <div class="ticks" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
-      <label>Titres du top <span class="v" id="topv">5</span>
-        <input id="topn" type="range" min="3" max="10" step="1" value="5" aria-label="Nombre de titres affichés dans le top">
-      </label>
       <label>Petits artistes <span class="v" id="fanv">Tout</span>
         <input id="fanmax" type="range" min="0" max="8" step="1" value="0" aria-label="Popularité maximale : estompe les artistes plus écoutés">
       </label>
+      </details>
+      <details class="grp" name="pg">
+        <summary>Écoute</summary>
+      <label>Titres du top <span class="v" id="topv">5</span>
+        <input id="topn" type="range" min="3" max="10" step="1" value="5" aria-label="Nombre de titres affichés dans le top">
+      </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
+      </details>
+      <details class="grp" name="pg" id="grpext">
+        <summary>Sources</summary>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
       <div class="legend" id="extlegend" hidden>
         <label class="lg"><input type="checkbox" data-kind="d" checked aria-label="Artistes similaires (Deezer)"><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/></svg><span>Artistes similaires (Deezer) <span class="cnt" data-count="d"></span></span></label>
@@ -368,6 +390,9 @@
         <div class="lg"><span class="sp"></span><svg viewBox="0 0 40 8" aria-hidden="true"><line x1="1" y1="4" x2="39" y2="4" stroke="currentColor" stroke-width="2.4" stroke-opacity="0.6"/></svg><span>Confirmé par plusieurs sources</span></div>
         <div class="lgnote">Décocher un type masque ses liens, et les scores se recalculent avec les types cochés.</div>
       </div>
+      </details>
+      <details class="grp" name="pg">
+        <summary>Carte</summary>
       <div class="row">
         <button id="undo" type="button" disabled>Annuler</button>
         <button id="redo" type="button" disabled>Rétablir</button>
@@ -380,6 +405,7 @@
         <button id="share" type="button">Copier le lien</button>
         <button id="png" type="button">Image PNG</button>
       </div>
+      </details>
       <div class="row only-narrow">
         <button id="theme2" type="button">Mode sombre</button>
         <button id="lang2" type="button">English</button>
@@ -1950,6 +1976,7 @@
     var on = !nudgeSeen && !extOn && !!s && s.expanded && !s.loading && s.deg <= 3;
     el('extopt').parentNode.classList.toggle('nudge', on);
     el('panel').classList.toggle('nudge', on);
+    el('grpext').classList.toggle('nudge', on);
   }
   el('extopt').parentNode.addEventListener('pointerenter', function () { nudgeSeen = true; updateNudge(); });
   el('panel').addEventListener('toggle', function () { if (el('panel').open && el('panel').classList.contains('nudge')) updateNudge(); });
@@ -2570,7 +2597,7 @@
     'Langue': 'Language',
     'English': 'Français',
     /* reglages */
-    'Réglages': 'Settings',
+    'Réglages': 'Settings', 'Affichage': 'Display', 'Écoute': 'Listening', 'Sources': 'Sources', 'Carte': 'Map',
     'Distance des liens': 'Link distance',
     'Score minimal': 'Minimum score',
     'Score d\'affinité minimal': 'Minimum affinity score',
