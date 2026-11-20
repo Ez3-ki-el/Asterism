@@ -289,7 +289,7 @@
       </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
-      <div class="legend" id="extlegend" hidden>Pointillé fin : collaboration. Tirets : ListenBrainz. Trait épais : confirmé par plusieurs sources.</div>
+      <div class="legend" id="extlegend" hidden>Pointillé fin : collaboration. Tiret-point : même label. Tirets : ListenBrainz. Trait épais : confirmé par plusieurs sources.</div>
       <div class="row">
         <button id="undo" type="button" disabled>Annuler</button>
         <button id="redo" type="button" disabled>Rétablir</button>
@@ -567,6 +567,55 @@
     return 'ok';
   }
 
+  /* Labels : autres artistes sortis chez les labels des albums de l'artiste (type 'e').
+     Les labels de distributeur (numeros, Believe, TuneCore...) sont ecartes, "Various Artists" ignore,
+     et un label tres large (50 albums ou plus de 40 artistes) pese moins et ajoute moins de nœuds. */
+  var GENERIC_LABELS = /^(\d+\s*records|believe|tunecore|distrokid|cd\s?baby|amuse|ditto|symphonic|the orchard|ingrooves|7digital|self[- ]released|independent|unknown|none|n\/a)\b/i;
+  var VARIOUS = ['various artists', 'artistes divers', 'multi interpretes', 'compilation', 'va'];
+
+  async function enrichLabel(n, g) {
+    var albs = (await dz('/artist/' + n.id + '/albums?limit=6')).data || [];
+    if (!alive(n, g)) return [];
+    var labels = new Map();
+    for (var i = 0; i < Math.min(4, albs.length); i++) {
+      var info = await dz('/album/' + albs[i].id);
+      if (!alive(n, g)) return [];
+      var lab = info.label && String(info.label).trim();
+      if (lab && !GENERIC_LABELS.test(lab)) labels.set(lab, (labels.get(lab) || 0) + 1);
+    }
+    var ranked = Array.from(labels.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 2);
+    var used = [];
+    for (var j = 0; j < ranked.length; j++) {
+      var name = ranked[j][0];
+      var found = (await dz('/search/album?q=' + encodeURIComponent('label:"' + name + '"') + '&limit=50')).data || [];
+      if (!alive(n, g)) return used;
+      var roster = new Map();
+      found.forEach(function (a) {
+        var ar = a.artist || {};
+        if (!ar.id || ar.id === n.id || VARIOUS.indexOf(normName(ar.name)) >= 0) return;
+        var ent = roster.get(ar.id) || { a: ar, c: 0 };
+        ent.c++;
+        roster.set(ar.id, ent);
+      });
+      var size = roster.size;
+      if (!size) continue;
+      var w = Math.max(0.1, Math.min(0.6, 1 / (1 + size / 10)));
+      var cap = (size >= 40 || found.length >= 50) ? 3 : 5, added = 0;
+      Array.from(roster.values()).sort(function (a, b) { return b.c - a.c; }).forEach(function (ent) {
+        var m = byId.get(ent.a.id);
+        if (!m) {
+          if (added >= cap) return;
+          m = ensureNode({ id: ent.a.id, name: ent.a.name, picture_medium: ent.a.picture_medium || ent.a.picture, nb_fan: ent.a.nb_fan }, n.x, n.y);
+          added++;
+        }
+        addLink(n, m, 'e', w);
+      });
+      used.push(name);
+      syncSim();
+    }
+    return used;
+  }
+
   async function enrich(n) {
     if (!extOn) return;
     var g = gen;
@@ -574,17 +623,22 @@
     setStatus('Sources étendues : recherche…', null, null, 'msg');
     var collabFailed = false, lb;
     try { await enrichCollab(n, g); } catch (e) { collabFailed = true; }
+    var labelsUsed = [], labelFailed = false;
+    try { labelsUsed = await enrichLabel(n, g); } catch (e) { labelFailed = true; }
     try { lb = await enrichLB(n, g); } catch (e) { lb = 'err'; }
     if (!alive(n, g)) return;
-    var c = 0, l = 0, both = 0;
+    var c = 0, l = 0, both = 0, eCount = 0;
     links.forEach(function (lk) {
       if (idOf(lk.source) !== n.id && idOf(lk.target) !== n.id) return;
       if (!lk.k) return;
       if (lk.k.length > 1) both++;
       if (lk.k.indexOf('c') >= 0) c++;
       if (lk.k.indexOf('l') >= 0) l++;
+      if (lk.k.indexOf('e') >= 0) eCount++;
     });
     var parts = ['collaborations : ' + (collabFailed ? 'indisponibles' : c)];
+    parts.push('labels : ' + (labelFailed ? 'indisponibles'
+      : eCount + (labelsUsed.length ? ' (' + labelsUsed.join(', ') + ')' : '')));
     parts.push('ListenBrainz : ' + (lb === 'nomb' ? 'artiste absent de MusicBrainz'
       : lb === 'empty' ? 'aucun voisin' : lb === 'err' ? 'indisponible' : l));
     if (both) parts.push('confirmés : ' + both);
@@ -662,7 +716,8 @@
       ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1);
       ctx.strokeStyle = multi ? C.ink : C.link;
       ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
-      ctx.setLineDash(multi ? [] : (l.k === 'c' ? [1.5 / k, 3.5 / k] : [5 / k, 4 / k]));
+      ctx.setLineDash(multi ? [] : (l.k === 'c' ? [1.5 / k, 3.5 / k]
+        : l.k === 'e' ? [8 / k, 3 / k, 1.5 / k, 3 / k] : [5 / k, 4 / k]));
       ctx.stroke();
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
