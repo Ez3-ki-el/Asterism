@@ -352,6 +352,9 @@
       <label>Titres du top <span class="v" id="topv">5</span>
         <input id="topn" type="range" min="3" max="10" step="1" value="5" aria-label="Nombre de titres affichés dans le top">
       </label>
+      <label>Petits artistes <span class="v" id="fanv">Tout</span>
+        <input id="fanmax" type="range" min="0" max="8" step="1" value="0" aria-label="Popularité maximale : estompe les artistes plus écoutés">
+      </label>
       <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
       <label class="check"><input id="extopt" type="checkbox"> Sources étendues <span class="tag">expérimental</span></label>
       <div class="legend" id="extlegend" hidden>
@@ -508,6 +511,12 @@
   } catch (e) {}
   try { minScore = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mg-min'), 10) || 0)) / 100; } catch (e) {}
   function kOn(c) { return !extOn || kindsOn[c]; }
+  /* Mode petits artistes : au-dela d'un nombre de fans (curseur des reglages), un artiste est estompe, jamais masque :
+     il reste cliquable. La racine et la selection ne sont jamais estompees. Indice 0 = tout afficher. */
+  var FAN_STEPS = [0, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500], fanIdx = 0, fanMax = 0;
+  try { fanIdx = Math.max(0, Math.min(FAN_STEPS.length - 1, parseInt(localStorage.getItem('mg-fan'), 10) || 0)); } catch (e) {}
+  fanMax = FAN_STEPS[fanIdx];
+  function bigNode(n) { return fanMax > 0 && !n.root && n !== selected && typeof n.fans === 'number' && n.fans > fanMax; }
   /* Lettres de types d'un lien qui sont actuellement cochees ('' = lien masque). */
   function ekRaw(lk) {
     if (lk._kv !== kindsVer || lk._kk !== lk.k) {
@@ -561,6 +570,7 @@
     updateLegend();
     hoveredLink = null;
     hideLinkTip();
+    if (typeof updateFanLabel === 'function') updateFanLabel();
     document.getElementById('empty').hidden = nodes.length > 0;
     setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '', null, null, 'count');
   }
@@ -1181,8 +1191,10 @@
       ctx.globalAlpha = 1;
     }
     function plain(lk) { return ekOf(lk) === 'd'; }
-    pass(function (lk) { return plain(lk) && !isDim(lk); }, f ? 0.35 : 1);
-    if (dimRoot) pass(function (lk) { return plain(lk) && isDim(lk); }, f ? 0.12 : 0.33);
+    function toBig(lk) { return fanMax > 0 && (bigNode(lk.source) || bigNode(lk.target)); }
+    pass(function (lk) { return plain(lk) && !isDim(lk) && !toBig(lk); }, f ? 0.35 : 1);
+    if (dimRoot) pass(function (lk) { return plain(lk) && isDim(lk) && !toBig(lk); }, f ? 0.12 : 0.33);
+    if (fanMax > 0) pass(function (lk) { return plain(lk) && toBig(lk); }, f ? 0.05 : 0.08);
 
     /* Liens des sources etendues : pointille fin = collaboration, tirets = ListenBrainz,
        trait plein epais = confirme par plusieurs sources ; l'epaisseur suit le poids. */
@@ -1194,7 +1206,7 @@
       var multi = ek.length > 1, wgt = 1 + (l.w || 0) * 0.8;
       ctx.beginPath();
       ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
-      ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (multi ? 0.45 : 1) * fadeOf(l);
+      ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (toBig(l) ? 0.2 : 1) * (multi ? 0.45 : 1) * fadeOf(l);
       ctx.strokeStyle = multi ? C.ink : C.link;
       ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
       ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
@@ -1226,6 +1238,7 @@
       if (!isShown(n)) continue;
       var v = vis(n), a = v ? 1 : 0.07;
       if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
+      if (bigNode(n)) a = Math.min(a, 0.12);
       a *= fadeOf(n);
       ctx.globalAlpha = a;
       var r = R(n), hot = (n === f || n.root);
@@ -1308,7 +1321,7 @@
       n = nodes[i];
       if (!vis(n)) continue;
       var strong = n === f || n === selected || n.root || (f && nb.has(n.id));
-      if (!strong && (f || base <= 0.02)) continue;
+      if (!strong && (f || base <= 0.02 || bigNode(n))) continue;
       cand.push({ n: n, strong: strong });
     }
     cand.sort(function (a, b) {
@@ -2133,6 +2146,17 @@
   });
 
   /* Jauge de score minimal : masque les liens dont le score est inferieur au seuil. */
+  function updateFanLabel() {
+    var out = 0;
+    nodes.forEach(function (n) { if (bigNode(n)) out++; });
+    el('fanv').textContent = fanMax ? '≤ ' + fanMax.toLocaleString(LANG === 'en' ? 'en-US' : 'fr-FR') + (out ? ' (' + out + ')' : '') : T('Tout');
+  }
+  el('fanmax').value = fanIdx; updateFanLabel();
+  el('fanmax').addEventListener('input', function (e) {
+    fanIdx = +e.target.value; fanMax = FAN_STEPS[fanIdx];
+    try { localStorage.setItem('mg-fan', String(fanIdx)); } catch (err) {}
+    updateFanLabel(); draw();
+  });
   el('topn').value = topN; el('topv').textContent = topN;
   el('topn').addEventListener('input', function (e) {
     topN = +e.target.value;
