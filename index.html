@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Asterism est une carte interactive des artistes similaires : explorez de voisin en voisin, écoutez des extraits et découvrez de nouvelles scènes musicales.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://ez3-ki-el.github.io/Asterism/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cstyle%3E.s%7Bstroke:%23161613%7D.f%7Bfill:%23161613%7D@media(prefers-color-scheme:dark)%7B.s%7Bstroke:%23ebe8e1%7D.f%7Bfill:%23ebe8e1%7D%7D%3C/style%3E%3Cpath class='s' d='M16 7 6 24h20z' fill='none' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='7' r='4.2' fill='%23d83a1c'/%3E%3Ccircle class='f' cx='6' cy='24' r='3.4'/%3E%3Ccircle class='f' cx='26' cy='24' r='3.4'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Asterism">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Asterism : carte des artistes similaires">
+<meta property="og:description" content="Explorez de voisin en voisin la carte des artistes proches, écoutez des extraits, découvrez de nouvelles scènes musicales.">
+<meta property="og:url" content="https://ez3-ki-el.github.io/Asterism/">
+<meta property="og:image" content="https://ez3-ki-el.github.io/Asterism/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Une constellation d'artistes reliés autour d'un point orange, avec le nom Asterism.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Asterism : carte des artistes similaires">
+<meta name="twitter:description" content="Explorez de voisin en voisin la carte des artistes proches, écoutez des extraits, découvrez de nouvelles scènes musicales.">
+<meta name="twitter:image" content="https://ez3-ki-el.github.io/Asterism/og.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Asterism",
+  "url": "https://ez3-ki-el.github.io/Asterism/",
+  "description": "Carte interactive des artistes similaires, construite à partir de Deezer : explorer de voisin en voisin, écouter des extraits, découvrir de nouvelles scènes musicales.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript",
+  "inLanguage": "fr",
+  "image": "https://ez3-ki-el.github.io/Asterism/og.png",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+}
+</script>
+<title>Asterism : carte des artistes similaires (dig musical)</title>
+<style>
+  :root {
+    --bg: #f3f1ec;
+    --ink: #161613;
+    --muted: #77746c;
+    --line: #d9d5cb;
+    --accent: #d83a1c;
+    --link: rgba(22, 22, 19, 0.30);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211;
+    --ink: #ebe8e1;
+    --muted: #8b877e;
+    --line: #2e2d2a;
+    --accent: #ff6b3d;
+    --link: rgba(235, 232, 225, 0.28);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  ::selection { background: var(--accent); color: var(--bg); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 12px/1.5 var(--mono); letter-spacing: 0.01em; overflow: hidden; }
+  #app { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  #menu, #card .actions { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+  .box { background: var(--bg); border: 1px solid var(--line); }
+
+  button { background: transparent; color: var(--ink); border: 1px solid var(--ink); border-radius: 0;
+    padding: 6px 10px; font: inherit; cursor: pointer; flex: 1; }
+  button:hover { background: var(--ink); color: var(--bg); }
+  button.link { border: 0; padding: 0; flex: none; text-decoration: underline; text-underline-offset: 3px;
+    text-decoration-thickness: 1px; }
+  button.link:hover { background: transparent; color: var(--accent); }
+  :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+  #topbar { position: absolute; top: 20px; left: 20px; width: min(320px, calc(100% - 40px)); }
+  #q { width: 100%; padding: 6px 0 8px; background: transparent; color: var(--ink); border: 0;
+    border-bottom: 1px solid var(--ink); border-radius: 0; font: 18px/1.2 var(--serif); outline: none; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--ink);
+    text-decoration: none; }
+  .brand .mark { width: 24px; height: 24px; flex: none; }
+  .brand span { font: 22px/1 var(--serif); letter-spacing: -0.01em; }
+  .brand:hover span { color: var(--accent); }
+  #empty .mark { width: 46px; height: 46px; margin-bottom: -4px; }
+  .searchrow { display: flex; align-items: flex-end; gap: 12px; }
+  #q { flex: 1; min-width: 0; }
+  #surprise { flex: none; white-space: nowrap; padding: 6px 10px; font-size: 11px; margin-bottom: 1px; }
+  #status button.link { font-size: inherit; }
+  #q::placeholder { color: var(--muted); }
+  #q:focus { border-bottom-color: var(--accent); }
+  #results { list-style: none; margin: 0; padding: 0; display: none; border-top: 0; }
+  #results li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer;
+    border-bottom: 1px solid var(--line); }
+  #results li:last-child { border-bottom: 0; }
+  #results li:hover, #results li.sel { background: var(--ink); color: var(--bg); }
+  #results img { width: 26px; height: 26px; object-fit: cover; filter: grayscale(1); background: var(--line); flex: none; }
+  #results small { color: var(--muted); margin-left: auto; font-size: 11px; }
+  #results li:hover small, #results li.sel small { color: inherit; opacity: 0.7; }
+
+  #panel { position: absolute; top: 20px; right: 20px; width: 220px; padding: 10px 14px 14px; }
+  #panel summary { cursor: pointer; list-style: none; user-select: none; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 10.5px; }
+  #panel summary::-webkit-details-marker { display: none; }
+  #panel summary::before { content: "+"; display: inline-block; width: 1.4em; }
+  #panel[open] summary::before { content: "\2212"; }
+  #panel label { display: block; margin-top: 14px; }
+  #panel label .v { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #panel .row { display: flex; gap: 8px; margin-top: 16px; }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px;
+    background: transparent; margin: 6px 0 0; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--ink); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -4px;
+    background: var(--bg); border: 1px solid var(--ink); border-radius: 0; }
+  input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); border-color: var(--accent); }
+  input[type=range]::-moz-range-track { height: 1px; background: var(--ink); }
+  input[type=range]::-moz-range-thumb { width: 9px; height: 9px; background: var(--bg);
+    border: 1px solid var(--ink); border-radius: 0; }
+  input[type=range]:hover::-moz-range-thumb { background: var(--accent); border-color: var(--accent); }
+
+  #panel .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 11px; height: 11px; margin: 0;
+    border: 1px solid var(--ink); border-radius: 0; background: var(--bg); cursor: pointer; flex: none; }
+  input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
+
+  #empty { position: absolute; left: 32px; bottom: 72px; max-width: 540px; display: flex; flex-direction: column;
+    align-items: flex-start; gap: 16px; pointer-events: none; padding-right: 24px; }
+  #empty h1 { margin: 0; font: 400 clamp(40px, 7vw, 76px)/0.95 var(--serif); letter-spacing: -0.025em; }
+  #empty p { margin: 0; color: var(--muted); max-width: 420px; }
+  #empty .chips { display: flex; flex-wrap: wrap; gap: 4px 18px; pointer-events: auto; }
+  #empty[hidden], #card[hidden] { display: none; }
+
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:disabled:hover { background: transparent; color: var(--ink); }
+
+  #card { position: absolute; left: 20px; bottom: 44px; width: min(300px, calc(100% - 40px)); padding: 14px;
+    z-index: 5; border-color: var(--ink); max-height: min(60vh, 520px); overflow-y: auto; }
+  #card button.mn { right: 30px; }
+  #card.min .actions, #card.min .now, #card.min ol, #card.min .hint { display: none; }
+  #card .x, #card .mn { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; padding: 0; border: 0;
+    font: 18px/1 var(--mono); flex: none; }
+  #card .head { display: flex; gap: 12px; padding-right: 54px; }
+  #card img { width: 64px; height: 64px; object-fit: cover;
+    background: var(--line); flex: none; }
+  #card .name { font: 17px/1.15 var(--serif); }
+  #card .meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  #card .actions { display: flex; gap: 6px; margin-top: 12px; }
+  #card .actions button { padding: 6px 4px; font-size: 11px; min-width: 0; }
+  #card .now { margin-top: 10px; font-size: 11px; }
+  #card .now span { display: block; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #card .bar { position: relative; height: 14px; margin-top: 2px; cursor: pointer; touch-action: none; }
+  #card .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--line); }
+  #card .bar i { position: absolute; left: 0; top: 6px; height: 2px; width: 0; background: var(--accent); }
+  #card .bar i::after { content: ""; position: absolute; right: -3px; top: -3px; width: 8px; height: 8px; background: var(--accent); }
+  #card ol { list-style: none; margin: 10px 0 0; padding: 0; }
+  #card li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line);
+    cursor: pointer; font-size: 11px; }
+  #card li:hover .t { color: var(--accent); }
+  #card li.on .t, #card li.on .act { color: var(--accent); }
+  #card li .num { color: var(--muted); width: 1.2em; flex: none; }
+  #card li .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #card li .act { color: var(--muted); flex: none; }
+  #card li.off { cursor: default; opacity: 0.45; }
+  #card li.off:hover .t { color: inherit; }
+  #card .hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
+  #card .hint:empty { display: none; }
+
+  #menu { position: absolute; z-index: 20; min-width: 210px; margin: 0; padding: 4px 0; list-style: none;
+    border-color: var(--ink); }
+  #menu[hidden] { display: none; }
+  #menu li { padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+  #menu li:hover { background: var(--ink); color: var(--bg); }
+  #menu li.danger { color: var(--accent); }
+  #menu li.danger:hover { background: var(--accent); color: var(--bg); }
+  #menu li.off { opacity: 0.4; cursor: default; }
+  #menu li.off:hover { background: transparent; color: inherit; }
+  #menu li.off.danger:hover { color: var(--accent); }
+  #menu li.sep { padding: 0; margin: 4px 0; border-top: 1px solid var(--line); cursor: default; }
+  #menu li.sep:hover { background: transparent; }
+
+  #status { position: absolute; left: 20px; bottom: 16px; color: var(--muted); font-size: 11px; pointer-events: none; }
+  #theme { position: absolute; right: 20px; bottom: 16px; color: var(--muted); font-size: 11px; }
+
+  @media (pointer: coarse) {
+    html, body { font-size: 13px; }
+    button { padding: 10px 12px; }
+    #card .x, #card .mn { width: 40px; height: 40px; font-size: 22px; padding: 0; }
+    #card button.mn { right: 44px; }
+    #card .head { padding-right: 90px; }
+    #card .actions button { padding: 12px 4px; }
+    #card li { padding: 12px 0; }
+    #menu li { padding: 14px 18px; }
+    #results li { padding: 12px 10px; }
+    #panel summary { padding: 6px 0; }
+    #panel .row button { padding: 12px 8px; }
+    input[type=range] { height: 30px; }
+    input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -11px; }
+    input[type=range]::-moz-range-thumb { width: 22px; height: 22px; }
+    input[type=checkbox] { width: 22px; height: 22px; }
+    #theme { padding: 10px; right: 10px; bottom: 6px; }
+    #status button.link { padding: 10px 6px; }
+    #surprise { padding: 10px 12px; }
+  }
+
+  @media (max-width: 640px) {
+    #panel { width: 190px; top: 108px; }
+    #empty { left: 20px; bottom: 56px; }
+  }
+</style>
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('mg-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+</head>
+<body>
+<noscript><p style="padding:20px">Cette page a besoin de JavaScript pour fonctionner.</p></noscript>
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <div id="topbar">
+    <a class="brand" href="./" aria-label="Asterism, retour à l'accueil">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 7 6 24h20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16" cy="7" r="4.2" fill="var(--accent)"/><circle cx="6" cy="24" r="3.4" fill="currentColor"/><circle cx="26" cy="24" r="3.4" fill="currentColor"/></svg>
+      <span>Asterism</span>
+    </a>
+    <div class="searchrow">
+      <input id="q" type="search" placeholder="Chercher un artiste" autocomplete="off" spellcheck="false" aria-label="Chercher un artiste">
+      <button id="surprise" type="button">Surprends-moi</button>
+    </div>
+    <ul id="results" class="box"></ul>
+  </div>
+
+  <details id="panel" class="box" open>
+    <summary>Réglages</summary>
+    <label>Focus <span class="v" id="focusv">Tout</span>
+      <input id="focus" type="range" min="0" max="3" step="1" value="0">
+    </label>
+    <label>Distance des liens <span class="v" id="distv">70</span>
+      <input id="dist" type="range" min="30" max="200" step="5" value="70">
+    </label>
+    <label class="check"><input id="sound" type="checkbox"> Écoute au survol</label>
+    <div class="row">
+      <button id="undo" type="button" disabled>Annuler</button>
+      <button id="redo" type="button" disabled>Rétablir</button>
+    </div>
+    <div class="row">
+      <button id="fit" type="button">Recentrer</button>
+      <button id="clear" type="button">Tout effacer</button>
+    </div>
+  </details>
+
+  <div id="empty">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 7 6 24h20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16" cy="7" r="4.2" fill="var(--accent)"/><circle cx="6" cy="24" r="3.4" fill="currentColor"/><circle cx="26" cy="24" r="3.4" fill="currentColor"/></svg>
+    <h1>Asterism</h1>
+    <p>Asterism est une carte interactive des artistes similaires. Cherche un artiste, ouvre sa fiche, explore ses voisins et écoute un extrait de 30 secondes : chaque clic dessine un peu plus la constellation. Pour essayer :</p>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="card" class="box" hidden>
+    <button id="cclose" class="x" type="button" aria-label="Fermer">&times;</button>
+    <button id="cmin" class="mn" type="button" aria-label="Réduire ou agrandir la fiche">&minus;</button>
+    <div class="head">
+      <img id="cimg" alt="">
+      <div>
+        <div class="name" id="cname"></div>
+        <div class="meta" id="cmeta"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="aexp" type="button">Explorer</button>
+      <button id="alisten" type="button">&Eacute;couter</button>
+      <button id="atop" type="button">Top 5 titres</button>
+    </div>
+    <div class="now" id="cnow" hidden>
+      <span id="cnowt"></span>
+      <div class="bar"><i id="cbar"></i></div>
+    </div>
+    <ol id="ctracks" hidden></ol>
+    <div class="hint" id="chint"></div>
+  </div>
+
+  <div id="status"></div>
+  <button id="theme" class="link" type="button"></button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- API Deezer (JSONP, sans cle) ---------- */
+  var jid = 0;
+  function jsonp(url, timeout) {
+    timeout = timeout || 8000;
+    return new Promise(function (resolve, reject) {
+      var cb = '__dz' + (++jid);
+      var s = document.createElement('script');
+      var t = setTimeout(function () { cleanup(); reject(new Error('delai depasse')); }, timeout);
+      function cleanup() { clearTimeout(t); delete window[cb]; s.remove(); }
+      window[cb] = function (d) { cleanup(); resolve(d); };
+      s.onerror = function () { cleanup(); reject(new Error('reseau')); };
+      s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'output=jsonp&callback=' + cb;
+      document.head.appendChild(s);
+    });
+  }
+  function dz(path) {
+    return jsonp('https://api.deezer.com' + path).then(function (d) {
+      if (d && d.error) throw new Error(d.error.message || ('erreur ' + d.error.code));
+      return d;
+    });
+  }
+
+  /* ---------- Etat du graphe ---------- */
+  var nodes = [], links = [];
+  var byId = new Map(), adj = new Map(), linkKeys = new Set();
+  var hovered = null, selected = null, dragging = false;
+  var focusDepth = 0, visible = null;
+
+  var C = {};
+  function loadTheme() {
+    var s = getComputedStyle(document.documentElement);
+    function g(name) { return s.getPropertyValue(name).trim(); }
+    C.bg = g('--bg'); C.ink = g('--ink'); C.accent = g('--accent'); C.link = g('--link'); C.mono = g('--mono');
+  }
+  loadTheme();
+
+  /* ---------- Canvas ---------- */
+  var app = document.getElementById('app');
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0, dpr = 1;
+  var transform = d3.zoomIdentity;
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = app.clientWidth; H = app.clientHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    draw();
+  }
+
+  var sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(function (d) { return d.id; }).distance(70).strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-220).distanceMax(600))
+    .force('x', d3.forceX(0).strength(0.03))
+    .force('y', d3.forceY(0).strength(0.03))
+    .force('collide', d3.forceCollide(function (d) { return R(d) + 3; }))
+    .on('tick', draw);
+
+  function R(n) { return 6.5 + Math.sqrt(n.deg) * 1.2 + (n.root ? 3 : 0); }
+  function vis(n) { return !visible || visible.has(n.id); }
+
+  function refresh() {
+    sim.nodes(nodes);
+    sim.force('link').links(links);
+    recomputeVisible();
+    document.getElementById('empty').hidden = nodes.length > 0;
+    setStatus(nodes.length ? nodes.length + ' artistes, ' + links.length + ' liens' : '');
+  }
+
+  function ensureNode(a, x, y) {
+    var n = byId.get(a.id);
+    if (n) return n;
+    n = {
+      id: a.id, name: a.name, pic: a.picture_medium || a.picture_big || a.picture || '',
+      fans: a.nb_fan, deg: 0, expanded: false, loading: false,
+      x: x + (Math.random() - 0.5) * 24, y: y + (Math.random() - 0.5) * 24, track: undefined
+    };
+    n.imgOk = false;
+    n.img = new Image();
+    n.img.onload = function () { n.imgOk = true; draw(); };
+    if (n.pic) n.img.src = n.pic;
+    nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
+    return n;
+  }
+
+  function addLink(a, b) {
+    if (a === b) return;
+    var key = a.id < b.id ? a.id + '-' + b.id : b.id + '-' + a.id;
+    if (linkKeys.has(key)) return;
+    linkKeys.add(key);
+    links.push({ source: a.id, target: b.id });
+    a.deg++; b.deg++;
+    adj.get(a.id).add(b.id); adj.get(b.id).add(a.id);
+  }
+
+  async function expand(n, silent) {
+    if (n.expanded || n.loading) return;
+    n.loading = true; startAnim();
+    try {
+      var d = await dz('/artist/' + n.id + '/related?limit=20');
+      var list = d.data || [];
+      if (!byId.has(n.id)) return;
+      if (!silent) commit();
+      list.forEach(function (a) { addLink(n, ensureNode(a, n.x, n.y)); });
+      n.expanded = true;
+      refresh();
+      if (!list.length) setStatus('Aucun artiste lié pour ' + n.name);
+    } catch (e) {
+      setStatus('Erreur Deezer : ' + e.message);
+    } finally {
+      n.loading = false;
+      sim.alpha(0.7).restart();
+      if (selected === n) renderCard();
+    }
+  }
+
+  /* ---------- Focus ---------- */
+  function recomputeVisible() {
+    if (!selected || focusDepth === 0) { visible = null; return; }
+    var seen = new Set([selected.id]), frontier = [selected.id];
+    for (var d = 0; d < focusDepth; d++) {
+      var next = [];
+      frontier.forEach(function (id) {
+        adj.get(id).forEach(function (o) { if (!seen.has(o)) { seen.add(o); next.push(o); } });
+      });
+      frontier = next;
+    }
+    visible = seen;
+  }
+
+  function select(n) {
+    if (playing && (!n || playing.id !== n.id)) stopAudio();
+    if (playing && n && playing.id === n.id) playing.hover = false;
+    selected = n;
+    recomputeVisible();
+    renderCard();
+    draw();
+  }
+
+  /* ---------- Rendu ---------- */
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(transform.x, transform.y);
+    ctx.scale(transform.k, transform.k);
+    var k = transform.k, f = hovered, nb = f ? adj.get(f.id) : null, i, l, n;
+
+    var dimRoot = focusDepth > 0 && selected && !selected.root;
+    function isDim(lk) {
+      return dimRoot && (lk.source.root || lk.target.root) && lk.source !== selected && lk.target !== selected;
+    }
+    function pass(test, alpha) {
+      ctx.beginPath();
+      for (i = 0; i < links.length; i++) {
+        l = links[i];
+        if (typeof l.source !== 'object' || !vis(l.source) || !vis(l.target)) continue;
+        if (f && (l.source === f || l.target === f)) continue;
+        if (!test(l)) continue;
+        ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
+      }
+      ctx.globalAlpha = alpha; ctx.strokeStyle = C.link; ctx.lineWidth = 1 / k;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    pass(function (lk) { return !isDim(lk); }, f ? 0.35 : 1);
+    if (dimRoot) pass(isDim, f ? 0.12 : 0.33);
+
+    if (f) {
+      ctx.beginPath();
+      for (i = 0; i < links.length; i++) {
+        l = links[i];
+        if (typeof l.source !== 'object') continue;
+        if (l.source === f || l.target === f) { ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); }
+      }
+      ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
+    }
+
+    var now = performance.now();
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      var v = vis(n), a = v ? 1 : 0.07;
+      if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
+      ctx.globalAlpha = a;
+      var r = R(n), hot = (n === f || n.root);
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+      if (n.imgOk && r * k >= 6) {
+        ctx.save();
+        ctx.clip();
+        ctx.drawImage(n.img, n.x - r, n.y - r, 2 * r, 2 * r);
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+        ctx.strokeStyle = hot ? C.accent : C.ink;
+        ctx.lineWidth = (hot ? 2.5 : n.expanded ? 2 : 1) / k;
+        ctx.stroke();
+      } else if (hot) {
+        ctx.fillStyle = C.accent; ctx.fill();
+      } else if (n.expanded) {
+        ctx.fillStyle = C.ink; ctx.fill();
+      } else {
+        ctx.fillStyle = C.bg; ctx.fill();
+        ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2 / k; ctx.stroke();
+      }
+      if (n === selected) {
+        ctx.beginPath(); ctx.arc(n.x, n.y, R(n) + 3 / k + 1, 0, 6.2832);
+        ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
+      }
+      if (playing && !playing.paused && playing.id === n.id) {
+        var phase = (now % 1800) / 1800;
+        for (var wv = 0; wv < 2; wv++) {
+          var pw = (phase + wv * 0.5) % 1;
+          ctx.beginPath(); ctx.arc(n.x, n.y, r * (1.08 + pw * 0.7), 0, 6.2832);
+          ctx.globalAlpha = a * (1 - pw) * 0.85;
+          ctx.strokeStyle = C.accent; ctx.lineWidth = 2 / k; ctx.stroke();
+        }
+        ctx.globalAlpha = a;
+      }
+      if (n.pinned) {
+        ctx.fillStyle = C.accent;
+        ctx.fillRect(n.x + r * 0.7, n.y - r * 0.7 - 5 / k, 5 / k, 5 / k);
+      }
+      if (n.loading) {
+        var pr = R(n) + 4 + Math.sin(now / 160) * 2;
+        ctx.beginPath(); ctx.arc(n.x, n.y, pr, 0, 6.2832);
+        ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5 / k; ctx.stroke();
+      }
+    }
+
+    var base = clamp((k - 0.45) / 0.5, 0, 1);
+    ctx.font = (11 / k) + 'px ' + C.mono;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = C.ink;
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      if (!vis(n)) continue;
+      var strong = n === f || n === selected || n.root || (f && nb.has(n.id));
+      var la = strong ? 1 : (f ? 0 : base);
+      if (la <= 0.02) continue;
+      ctx.globalAlpha = la;
+      ctx.fillText(n.name, n.x, n.y + R(n) + 4 / k);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  var anim = false;
+  function startAnim() { if (anim) return; anim = true; requestAnimationFrame(loop); }
+  function loop() {
+    draw();
+    var busy = nodes.some(function (n) { return n.loading; }) || (playing && !playing.paused);
+    if (busy) requestAnimationFrame(loop); else anim = false;
+  }
+
+  /* ---------- Interaction : zoom, glisser, survol ---------- */
+  function evPos(e) {
+    var s = e.sourceEvent || e;
+    var t = (s.touches && s.touches[0]) || (s.changedTouches && s.changedTouches[0]) || s;
+    var r = canvas.getBoundingClientRect();
+    return [t.clientX - r.left, t.clientY - r.top];
+  }
+
+  function nodeAt(pos) {
+    var p = transform.invert(pos), k = transform.k;
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      var n = nodes[i];
+      if (!vis(n)) continue;
+      var dx = n.x - p[0], dy = n.y - p[1], r = R(n) + PAD / k;
+      if (dx * dx + dy * dy <= r * r) return n;
+    }
+    return null;
+  }
+
+  var PAD = (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? 12 : 4;
+  var lastMultiAt = 0, lastTap = { id: null, t: 0 };
+  function pinching(ms) { return Date.now() - lastMultiAt < ms; }
+  function noteMulti(e) { if (e.touches && e.touches.length > 1) lastMultiAt = Date.now(); }
+  window.addEventListener('touchstart', noteMulti, { passive: true });
+  window.addEventListener('touchmove', noteMulti, { passive: true });
+
+  var zoom = d3.zoom().scaleExtent([0.1, 8])
+    .filter(function (e) {
+      if (e.type === 'wheel') return true;
+      if (e.type === 'touchstart') return (e.touches && e.touches.length > 1) || !nodeAt(evPos(e));
+      if (e.type === 'mousedown') return !nodeAt(evPos(e)) && !e.button;
+      return false;
+    })
+    .on('zoom', function (e) { transform = e.transform; draw(); });
+
+  var drag = d3.drag().container(canvas)
+    .subject(function (e) {
+      var n = nodeAt(evPos(e));
+      return n ? { x: transform.applyX(n.x), y: transform.applyY(n.y), node: n } : null;
+    })
+    .on('start', function (e) {
+      dragging = true;
+      var s = e.subject, p = transform.invert([e.x, e.y]);
+      s.moved = false; s.sx = e.x; s.sy = e.y;
+      if (!e.active) sim.alphaTarget(0.25).restart();
+      s.node.fx = p[0]; s.node.fy = p[1];
+    })
+    .on('drag', function (e) {
+      if (pinching(120)) return;
+      var s = e.subject, p = transform.invert([e.x, e.y]);
+      s.node.fx = p[0]; s.node.fy = p[1];
+      if (Math.hypot(e.x - s.sx, e.y - s.sy) > 4) s.moved = true;
+    })
+    .on('end', function (e) {
+      var s = e.subject, n = s.node;
+      if (!e.active) sim.alphaTarget(0);
+      if (!n.pinned) { n.fx = null; n.fy = null; }
+      dragging = false;
+      if (!s.moved && !pinching(350)) {
+        select(n);
+        if (e.sourceEvent && /^touch/.test(e.sourceEvent.type)) {
+          var tnow = Date.now();
+          if (lastTap.id === n.id && tnow - lastTap.t < 350) {
+            lastTap.t = 0;
+            expand(n); renderCard();
+          } else {
+            lastTap = { id: n.id, t: tnow };
+          }
+        }
+      }
+    });
+
+  var sel = d3.select(canvas);
+  sel.call(drag).call(zoom).on('dblclick.zoom', null);
+  sel.call(zoom.transform, d3.zoomIdentity.translate(window.innerWidth / 2, window.innerHeight / 2));
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (dragging || e.pointerType === 'touch') return;
+    var n = nodeAt(evPos(e));
+    canvas.style.cursor = n ? 'pointer' : 'grab';
+    setHover(n);
+  });
+  canvas.addEventListener('pointerleave', function () { if (!dragging) setHover(null); });
+  canvas.addEventListener('click', function (e) { if (!nodeAt(evPos(e))) select(null); });
+  canvas.addEventListener('dblclick', function (e) {
+    var n = nodeAt(evPos(e));
+    if (n) { select(n); expand(n); renderCard(); }
+  });
+
+  /* ---------- Menu contextuel (clic droit) ---------- */
+  var menu = document.createElement('ul');
+  menu.id = 'menu'; menu.className = 'box'; menu.hidden = true; menu.setAttribute('role', 'menu');
+  app.appendChild(menu);
+
+  function hideMenu() { menu.hidden = true; }
+
+  /* ---------- Historique : annuler / retablir ---------- */
+  var undoStack = [], redoStack = [];
+
+  function snapshot() {
+    return {
+      nodes: nodes.map(function (n) {
+        return { id: n.id, name: n.name, pic: n.pic, fans: n.fans, expanded: n.expanded,
+          root: !!n.root, pinned: !!n.pinned, x: n.x, y: n.y };
+      }),
+      links: links.map(function (l) {
+        return [typeof l.source === 'object' ? l.source.id : l.source,
+                typeof l.target === 'object' ? l.target.id : l.target];
+      }),
+      selectedId: selected ? selected.id : null
+    };
+  }
+
+  function restore(s) {
+    var old = new Map(byId);
+    nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
+    s.nodes.forEach(function (d) {
+      var n = old.get(d.id);
+      if (n) {
+        n.deg = 0;
+        nodes.push(n); byId.set(n.id, n); adj.set(n.id, new Set());
+      } else {
+        n = ensureNode({ id: d.id, name: d.name, picture_medium: d.pic, nb_fan: d.fans }, d.x, d.y);
+      }
+      n.x = d.x; n.y = d.y; n.vx = 0; n.vy = 0;
+      n.expanded = d.expanded; n.root = d.root; n.pinned = d.pinned;
+      n.fx = d.pinned ? d.x : null; n.fy = d.pinned ? d.y : null;
+    });
+    s.links.forEach(function (p) {
+      var a = byId.get(p[0]), b = byId.get(p[1]);
+      if (a && b) addLink(a, b);
+    });
+    hovered = null;
+    selected = (s.selectedId != null && byId.get(s.selectedId)) || null;
+    if (playing && !byId.has(playing.id)) stopAudio();
+    var firstRoot = nodes.filter(function (n) { return n.root; })[0];
+    try {
+      history.replaceState(null, '', firstRoot ? '#' + encodeURIComponent(firstRoot.name) : location.pathname);
+    } catch (e) {}
+    refresh(); renderCard();
+    sim.alpha(0.3).restart();
+    draw();
+  }
+
+  function historyUI() {
+    el('undo').disabled = !undoStack.length;
+    el('redo').disabled = !redoStack.length;
+  }
+
+  function commit() {
+    undoStack.push(snapshot());
+    if (undoStack.length > 40) undoStack.shift();
+    redoStack.length = 0;
+    historyUI();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(snapshot());
+    restore(undoStack.pop());
+    historyUI();
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(snapshot());
+    restore(redoStack.pop());
+    historyUI();
+  }
+
+  function leaves(n) {
+    var out = [];
+    adj.get(n.id).forEach(function (id) {
+      var m = byId.get(id);
+      if (m && !m.expanded && !m.root && m.deg === 1) out.push(m);
+    });
+    return out;
+  }
+
+  function removeNode(n, silent) {
+    if (!byId.has(n.id)) return;
+    if (!silent) commit();
+    if (playing && playing.id === n.id) stopAudio();
+    if (selected === n) select(null);
+    if (hovered === n) hovered = null;
+    for (var i = links.length - 1; i >= 0; i--) {
+      var l = links[i];
+      var a = typeof l.source === 'object' ? l.source.id : l.source;
+      var b = typeof l.target === 'object' ? l.target.id : l.target;
+      if (a !== n.id && b !== n.id) continue;
+      var other = byId.get(a === n.id ? b : a);
+      if (other) {
+        other.deg--; adj.get(other.id).delete(n.id);
+        if (other.deg === 0) other.expanded = false;
+      }
+      linkKeys.delete(a < b ? a + '-' + b : b + '-' + a);
+      links.splice(i, 1);
+    }
+    nodes.splice(nodes.indexOf(n), 1);
+    byId.delete(n.id); adj.delete(n.id);
+    refresh();
+    renderCard();
+    if (!silent) setStatus('Nœud supprimé', 'Annuler', undo);
+    sim.alpha(0.4).restart();
+  }
+
+  function menuItems(n) {
+    if (!n) {
+      return [
+        { label: 'Annuler', disabled: !undoStack.length, run: undo },
+        { label: 'Rétablir', disabled: !redoStack.length, run: redo },
+        { sep: true },
+        { label: 'Recentrer', run: fit },
+        { label: 'Tout effacer', danger: true, disabled: !nodes.length, run: function () { el('clear').click(); } }
+      ];
+    }
+    var lv = leaves(n);
+    return [
+      { label: 'Explorer', disabled: n.expanded || n.loading, run: function () { expand(n); renderCard(); } },
+      { label: (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter',
+        run: function () { if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0); } },
+      { label: 'Top 5 titres',
+        run: function () { n.showTop = true; loadTracks(n).then(function () { if (selected === n) renderCard(); }); } },
+      { label: focusDepth > 0 ? 'Quitter le focus' : 'Focus sur ce nœud',
+        run: function () {
+          var s = el('focus');
+          s.value = focusDepth > 0 ? 0 : 1;
+          s.dispatchEvent(new Event('input'));
+        } },
+      { label: n.pinned ? 'Libérer' : 'Épingler',
+        run: function () {
+          commit();
+          n.pinned = !n.pinned;
+          if (n.pinned) { n.fx = n.x; n.fy = n.y; } else { n.fx = null; n.fy = null; }
+          draw();
+        } },
+      { sep: true },
+      { label: 'Élaguer les feuilles (' + lv.length + ')', disabled: !lv.length,
+        run: function () {
+          commit();
+          lv.forEach(function (m) { removeNode(m, true); });
+          setStatus(lv.length + ' nœuds supprimés', 'Annuler', undo);
+        } },
+      { label: 'Supprimer le nœud', danger: true, run: function () { removeNode(n); } }
+    ];
+  }
+
+  function showMenu(items, cx, cy) {
+    menu.textContent = '';
+    items.forEach(function (it) {
+      var li = document.createElement('li');
+      if (it.sep) { li.className = 'sep'; menu.appendChild(li); return; }
+      li.textContent = it.label;
+      li.setAttribute('role', 'menuitem');
+      if (it.danger) li.classList.add('danger');
+      if (it.disabled) li.classList.add('off');
+      else li.addEventListener('click', function () { hideMenu(); it.run(); });
+      menu.appendChild(li);
+    });
+    menu.hidden = false;
+    var r = app.getBoundingClientRect();
+    var x = clamp(cx - r.left, 4, Math.max(4, W - menu.offsetWidth - 4));
+    var y = clamp(cy - r.top, 4, Math.max(4, H - menu.offsetHeight - 4));
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+  }
+
+  canvas.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    var n = nodeAt(evPos(e));
+    if (n) select(n);
+    showMenu(menuItems(n), e.clientX, e.clientY);
+  });
+  var lpTimer = null, lpStart = [0, 0];
+  function cancelLP() { clearTimeout(lpTimer); lpTimer = null; }
+  canvas.addEventListener('pointerdown', function (e) {
+    cancelLP();
+    if (e.pointerType !== 'touch' || !e.isPrimary) return;
+    lpStart = [e.clientX, e.clientY];
+    lpTimer = setTimeout(function () {
+      lpTimer = null;
+      if (!menu.hidden || pinching(400)) return;
+      var n = nodeAt(evPos(e));
+      if (n) select(n);
+      showMenu(menuItems(n), lpStart[0], lpStart[1]);
+    }, 550);
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (lpTimer && Math.hypot(e.clientX - lpStart[0], e.clientY - lpStart[1]) > 8) cancelLP();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { canvas.addEventListener(t, cancelLP); });
+  canvas.addEventListener('wheel', hideMenu, { passive: true });
+  document.addEventListener('pointerdown', function (e) { if (!menu.contains(e.target)) hideMenu(); });
+  window.addEventListener('blur', hideMenu);
+
+  /* ---------- Tuile fixe, ecoute, top 5 ---------- */
+  var card = document.getElementById('card');
+  var audio = new Audio(); audio.preload = 'none';
+  var playToken = 0, fadeT = null;
+  var playing = null; /* { id, idx } */
+
+  function el(id) { return document.getElementById(id); }
+  var hoverPlay = false, hoverTimer = null, cardMin = false;
+  try { hoverPlay = localStorage.getItem('mg-hover') === '1'; } catch (e) {}
+  el('sound').checked = hoverPlay;
+
+  function setHover(n) {
+    if (n === hovered) return;
+    hovered = n;
+    clearTimeout(hoverTimer);
+    if (playing && playing.hover && (!n || playing.id !== n.id)) stopAudio();
+    hoverStart(n);
+    draw();
+  }
+
+  function hoverStart(n) {
+    if (!hoverPlay || !n) return;
+    if (playing && (!playing.hover || playing.id === n.id)) return;
+    hoverTimer = setTimeout(async function () {
+      if (hovered !== n || (playing && !playing.hover)) return;
+      var tok = ++playToken;
+      var tracks = await loadTracks(n);
+      if (tok !== playToken || hovered !== n || (playing && !playing.hover) || !tracks) return;
+      var idx = tracks.findIndex(function (x) { return x.url; });
+      if (idx < 0) return;
+      playing = { id: n.id, idx: idx, paused: false, hover: true };
+      audio.src = tracks[idx].url; audio.volume = 0;
+      renderCard();
+      try {
+        await audio.play();
+        if (tok !== playToken) { audio.pause(); return; }
+        fade(0.7, 300);
+      } catch (e) {
+        if (tok === playToken) { playing = null; renderCard(); }
+      }
+    }, 300);
+  }
+
+  function renderCard() {
+    var n = selected;
+    card.hidden = !n;
+    if (!n) { updateNow(); return; }
+    card.classList.toggle('min', cardMin);
+    el('cmin').textContent = cardMin ? '+' : '−';
+    el('cname').textContent = n.name;
+    var img = el('cimg');
+    if (img.getAttribute('src') !== n.pic) img.src = n.pic;
+    var meta = [];
+    if (typeof n.fans === 'number') meta.push(n.fans.toLocaleString('fr-FR') + ' fans');
+    meta.push(n.deg + (n.deg > 1 ? ' liens' : ' lien'));
+    el('cmeta').textContent = meta.join(' · ');
+    var ex = el('aexp');
+    ex.textContent = n.loading ? 'Chargement' : n.expanded ? 'Exploré' : 'Explorer';
+    ex.disabled = n.loading || n.expanded;
+    el('alisten').textContent = (playing && playing.id === n.id) ? (playing.paused ? 'Reprendre' : 'Pause') : 'Écouter';
+    el('atop').textContent = n.showTop ? 'Masquer le top' : 'Top 5 titres';
+    renderTracks(n);
+    el('chint').textContent = n.tracks === null ? 'Aucun extrait disponible' : '';
+    updateNow();
+    if (playing && !playing.paused) startAnim();
+  }
+
+  function renderTracks(n) {
+    var ol = el('ctracks');
+    ol.textContent = '';
+    ol.hidden = !(n.showTop && n.tracks);
+    if (ol.hidden) return;
+    n.tracks.forEach(function (t, i) {
+      var li = document.createElement('li');
+      var on = playing && playing.id === n.id && playing.idx === i;
+      if (on) li.className = 'on';
+      var num = document.createElement('span'); num.className = 'num'; num.textContent = i + 1;
+      var title = document.createElement('span'); title.className = 't'; title.textContent = t.title;
+      var act = document.createElement('span'); act.className = 'act';
+      act.textContent = !t.url ? '' : (on && !playing.paused) ? 'Pause' : 'Lire';
+      li.append(num, title, act);
+      if (t.url) li.addEventListener('click', function () { togglePlay(n, i); }); else li.classList.add('off');
+      ol.appendChild(li);
+    });
+  }
+
+  function updateNow() {
+    var box = el('cnow'), n = selected;
+    if (!n || !playing || playing.id !== n.id || !n.tracks) { box.hidden = true; el('cbar').style.width = '0'; return; }
+    box.hidden = false;
+    el('cnowt').textContent = n.tracks[playing.idx].title;
+  }
+
+  async function loadTracks(n) {
+    if (n.tracks !== undefined) return n.tracks;
+    try {
+      var d = await dz('/artist/' + n.id + '/top?limit=5');
+      var list = (d.data || []).map(function (t) { return { title: t.title, url: t.preview || '' }; });
+      n.tracks = list.length ? list : null;
+    } catch (e) {
+      setStatus('Erreur Deezer : ' + e.message);
+      return null;
+    }
+    return n.tracks;
+  }
+
+  function fade(to, ms, done) {
+    clearInterval(fadeT);
+    var from = audio.volume, steps = 10, i = 0;
+    fadeT = setInterval(function () {
+      i++;
+      audio.volume = clamp(from + (to - from) * i / steps, 0, 1);
+      if (i >= steps) { clearInterval(fadeT); if (done) done(); }
+    }, ms / steps);
+  }
+
+  function stopAudio() {
+    playToken++;
+    playing = null;
+    if (!audio.paused) fade(0, 200, function () { audio.pause(); });
+    renderCard();
+  }
+
+  function togglePause() {
+    if (!playing) return;
+    if (playing.paused) {
+      playing.paused = false;
+      audio.volume = 0;
+      audio.play().then(function () { fade(0.7, 200); }).catch(function () {});
+    } else {
+      playing.paused = true;
+      fade(0, 150, function () { if (playing && playing.paused) audio.pause(); });
+    }
+    renderCard();
+  }
+
+  async function togglePlay(n, i) {
+    if (playing && playing.id === n.id && playing.idx === i) { togglePause(); return; }
+    var tok = ++playToken;
+    var tracks = await loadTracks(n);
+    if (tok !== playToken) return;
+    if (!tracks) { renderCard(); return; }
+    var idx = i;
+    if (!tracks[idx].url) idx = tracks.findIndex(function (x) { return x.url; });
+    if (idx < 0) { renderCard(); return; }
+    playing = { id: n.id, idx: idx, paused: false };
+    audio.src = tracks[idx].url; audio.volume = 0;
+    renderCard();
+    try {
+      await audio.play();
+      if (tok !== playToken) { audio.pause(); return; }
+      fade(0.7, 300);
+    } catch (e) {
+      if (tok === playToken) {
+        playing = null; renderCard();
+        el('chint').textContent = 'Lecture bloquée par le navigateur';
+      }
+    }
+  }
+
+  el('aexp').addEventListener('click', function () {
+    if (selected) { expand(selected); renderCard(); }
+  });
+  el('alisten').addEventListener('click', function () {
+    var n = selected;
+    if (!n) return;
+    if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0);
+  });
+  el('atop').addEventListener('click', async function () {
+    var n = selected;
+    if (!n) return;
+    n.showTop = !n.showTop;
+    if (n.showTop) await loadTracks(n);
+    if (selected === n) renderCard();
+  });
+  el('cclose').addEventListener('click', function () { select(null); });
+  el('cmin').addEventListener('click', function () { cardMin = !cardMin; renderCard(); });
+  el('sound').addEventListener('change', function (e) {
+    hoverPlay = e.target.checked;
+    try { localStorage.setItem('mg-hover', hoverPlay ? '1' : '0'); } catch (err) {}
+    clearTimeout(hoverTimer);
+    if (!hoverPlay && playing && playing.hover) stopAudio();
+    else if (hoverPlay && hovered) hoverStart(hovered);
+  });
+
+  var seeking = false;
+  var bar = document.querySelector('#card .bar');
+  function seekTo(e) {
+    if (!playing || !audio.duration) return;
+    var r = bar.getBoundingClientRect();
+    var f = clamp((e.clientX - r.left) / r.width, 0, 1);
+    audio.currentTime = f * audio.duration;
+    el('cbar').style.width = (100 * f) + '%';
+  }
+  bar.addEventListener('pointerdown', function (e) { seeking = true; bar.setPointerCapture(e.pointerId); seekTo(e); });
+  bar.addEventListener('pointermove', function (e) { if (seeking) seekTo(e); });
+  bar.addEventListener('pointerup', function () { seeking = false; });
+  bar.addEventListener('pointercancel', function () { seeking = false; });
+
+  audio.addEventListener('timeupdate', function () {
+    if (!seeking && audio.duration) el('cbar').style.width = (100 * audio.currentTime / audio.duration) + '%';
+  });
+  audio.addEventListener('ended', function () { playing = null; renderCard(); });
+
+  /* ---------- Recherche ---------- */
+  var q = document.getElementById('q'), results = document.getElementById('results');
+  var qTimer = null, qList = [], qSel = -1;
+
+  function renderResults() {
+    results.textContent = '';
+    qList.forEach(function (a, i) {
+      var li = document.createElement('li');
+      if (i === qSel) li.className = 'sel';
+      var img = document.createElement('img'); img.src = a.picture_small || ''; img.alt = '';
+      var name = document.createElement('span'); name.textContent = a.name;
+      var fans = document.createElement('small');
+      fans.textContent = typeof a.nb_fan === 'number' ? a.nb_fan.toLocaleString('fr-FR') + ' fans' : '';
+      li.append(img, name, fans);
+      li.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(a); });
+      results.appendChild(li);
+    });
+    results.style.display = qList.length ? 'block' : 'none';
+  }
+
+  function pick(a) { q.value = ''; qList = []; qSel = -1; renderResults(); addRoot(a); }
+
+  q.addEventListener('input', function () {
+    clearTimeout(qTimer);
+    var v = q.value.trim();
+    if (!v) { qList = []; renderResults(); return; }
+    qTimer = setTimeout(async function () {
+      try {
+        var d = await dz('/search/artist?q=' + encodeURIComponent(v) + '&limit=6');
+        if (q.value.trim() !== v) return;
+        qList = d.data || []; qSel = qList.length ? 0 : -1; renderResults();
+      } catch (e) { setStatus('Erreur Deezer : ' + e.message); }
+    }, 250);
+  });
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' && qList.length) { qSel = (qSel + 1) % qList.length; renderResults(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp' && qList.length) { qSel = (qSel - 1 + qList.length) % qList.length; renderResults(); e.preventDefault(); }
+    else if (e.key === 'Enter' && qList[qSel]) { pick(qList[qSel]); }
+    else if (e.key === 'Escape') { qList = []; renderResults(); q.blur(); }
+  });
+  q.addEventListener('blur', function () { setTimeout(function () { qList = []; renderResults(); }, 100); });
+
+  function addRoot(a, skipCommit) {
+    if (!skipCommit) commit();
+    var first = nodes.length === 0;
+    var c = transform.invert([W / 2, H / 2]);
+    var n = ensureNode(a, c[0], c[1]);
+    n.root = true;
+    refresh();
+    select(n);
+    expand(n, true);
+    try { history.replaceState(null, '', '#' + encodeURIComponent(a.name)); } catch (e) {}
+    if (first) setTimeout(fit, 1500);
+  }
+
+  async function searchAndAdd(name) {
+    try {
+      var d = await dz('/search/artist?q=' + encodeURIComponent(name) + '&limit=1');
+      if (d.data && d.data[0]) addRoot(d.data[0]); else setStatus('Aucun artiste trouvé pour ' + name);
+    } catch (e) { setStatus('Erreur Deezer : ' + e.message); }
+  }
+
+  /* ---------- Panneau et divers ---------- */
+  function setStatus(t, label, fn) {
+    var s = document.getElementById('status');
+    s.textContent = t;
+    s.style.pointerEvents = 'none';
+    if (label) {
+      s.append(' · ');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'link'; b.textContent = label;
+      b.addEventListener('click', fn);
+      s.appendChild(b);
+      s.style.pointerEvents = 'auto';
+    }
+  }
+
+  function fit() {
+    if (!nodes.length) return;
+    var xs = nodes.map(function (n) { return n.x; }), ys = nodes.map(function (n) { return n.y; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var pad = 90;
+    var k = Math.min(2, (W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad) / Math.max(y1 - y0, 1));
+    k = Math.max(0.15, k);
+    var t = d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+    sel.transition().duration(700).call(zoom.transform, t);
+  }
+
+  var FOCUS_LABELS = ['Tout', '1 saut', '2 sauts', '3 sauts'];
+  document.getElementById('focus').addEventListener('input', function (e) {
+    focusDepth = +e.target.value;
+    document.getElementById('focusv').textContent = FOCUS_LABELS[focusDepth];
+    recomputeVisible(); draw();
+    if (focusDepth > 0 && !selected) setStatus('Clique sur un nœud pour choisir le centre du focus');
+  });
+  document.getElementById('dist').addEventListener('input', function (e) {
+    document.getElementById('distv').textContent = e.target.value;
+    sim.force('link').distance(+e.target.value); sim.alpha(0.5).restart();
+  });
+  document.getElementById('fit').addEventListener('click', fit);
+  function clearGraph() {
+    hovered = null; selected = null; visible = null; stopAudio();
+    nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
+    refresh(); renderCard();
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    draw();
+  }
+  document.getElementById('clear').addEventListener('click', function () {
+    if (!nodes.length) return;
+    commit(); clearGraph();
+    setStatus('Carte effacée', 'Annuler', undo);
+  });
+  el('undo').addEventListener('click', undo);
+  el('redo').addEventListener('click', redo);
+
+  var genres = null, surprising = false;
+  function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  async function surprise() {
+    if (surprising) return;
+    surprising = true;
+    var btn = el('surprise');
+    btn.disabled = true;
+    setStatus('Recherche d’un artiste…');
+    try {
+      if (!genres) {
+        var g = await dz('/genre');
+        genres = (g.data || []).filter(function (x) { return x.id > 0; });
+      }
+      if (!genres.length) throw new Error('aucun genre');
+      var list = [];
+      for (var tries = 0; tries < 3 && !list.length; tries++) {
+        try { list = (await dz('/genre/' + randomOf(genres).id + '/artists')).data || []; } catch (e) { list = []; }
+      }
+      if (!list.length) throw new Error('aucun artiste trouvé');
+      var a = randomOf(list);
+      for (var step = 0; step < 2; step++) {
+        try {
+          var r = await dz('/artist/' + a.id + '/related?limit=20');
+          if (!r.data || !r.data.length) break;
+          a = randomOf(r.data);
+        } catch (e) { break; }
+      }
+      commit(); clearGraph();
+      addRoot(a, true);
+    } catch (e) {
+      setStatus('Erreur Deezer : ' + e.message);
+    } finally {
+      surprising = false;
+      btn.disabled = false;
+    }
+  }
+  el('surprise').addEventListener('click', surprise);
+  window.addEventListener('keydown', function (e) {
+    if (document.activeElement === q) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      var kk = e.key.toLowerCase();
+      if (kk === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if (kk === 'y' || (kk === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+    }
+    if (e.key === 'Escape') { hideMenu(); select(null); }
+    else if (e.key === 'Delete' && selected) removeNode(selected);
+  });
+  window.addEventListener('resize', resize);
+
+  ['Radiohead', 'Daft Punk', 'Miles Davis', 'Björk', 'Nina Simone', 'Aphex Twin'].forEach(function (name) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'link'; b.textContent = name;
+    b.addEventListener('click', function () { searchAndAdd(name); });
+    document.getElementById('chips').appendChild(b);
+  });
+  (function () {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'link'; b.textContent = 'Surprends-moi';
+    b.addEventListener('click', surprise);
+    document.getElementById('chips').appendChild(b);
+  })();
+
+  var themeBtn = document.getElementById('theme');
+  function themeLabel() {
+    themeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Mode clair' : 'Mode sombre';
+  }
+  themeBtn.addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mg-theme', next); } catch (e) {}
+    loadTheme(); themeLabel(); draw();
+  });
+  if (window.matchMedia) {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      var stored = null;
+      try { stored = localStorage.getItem('mg-theme'); } catch (err) {}
+      if (stored) return;
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+      loadTheme(); themeLabel(); draw();
+    });
+  }
+  themeLabel();
+  historyUI();
+  if (window.innerWidth < 700) document.getElementById('panel').open = false;
+
+  resize();
+  refresh();
+  if (location.hash.length > 1) searchAndAdd(decodeURIComponent(location.hash.slice(1)));
+})();
+</script>
+</body>
+</html>
