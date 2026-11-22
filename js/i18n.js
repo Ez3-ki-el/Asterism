@@ -152,6 +152,7 @@ EN = {
   'aucune influence enregistrée': 'no influence recorded', 'influences sans équivalent Deezer': 'influences not found on Deezer',
   'Genres (MusicBrainz)': 'Genres (MusicBrainz)', 'Biographie (Wikipédia)': 'Biography (Wikipedia)',
   'Source : Wikipédia, licence CC BY-SA': 'Source: Wikipedia, CC BY-SA licence',
+  'Glisser pour déplacer la fiche, double-clic pour la replacer': 'Drag to move the card, double-click to put it back',
   'Couper le son': 'Mute', 'Rétablir le son': 'Unmute', 'Volume : {n} %': 'Volume: {n}%',
   'Chemin vers…': 'Path to…', 'Chemin depuis {name} : clique l’artiste d’arrivée sur la carte.': 'Path from {name}: click the destination artist on the map.',
   'Chemin en {n} étape': 'Path in {n} step', 'Chemin en {n} étapes': 'Path in {n} steps', 'Écouter le chemin': 'Play the path',
@@ -198,6 +199,7 @@ function applyLang() {
   trDom(document.body);
   el('cclose').setAttribute('aria-label', T('Fermer'));
   el('cmin').setAttribute('aria-label', T('Réduire ou agrandir la fiche'));
+  document.querySelector('#card .head').title = T('Glisser pour déplacer la fiche, double-clic pour la replacer');
   el('clinks').querySelector('.lknote').textContent = T(CARD_NOTE_FR);
   el('focusv').textContent = T(FOCUS_LABELS[focusDepth]);
   themeLabel(); langLabel();

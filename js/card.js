@@ -975,6 +975,59 @@ el('atop').addEventListener('click', async function () {
 });
 el('cclose').addEventListener('click', function () { select(null); });
 el('cmin').addEventListener('click', function () { cardMin = !cardMin; renderCard(); });
+
+/* Fiche deplacable (ecran large seulement) : on la saisit par son en-tete (photo, nom), hors liens et boutons.
+   La position est memorisee ; un double-clic sur l'en-tete la remet a sa place d'origine. Sur telephone, la fiche reste en bas. */
+var cardPos = null;
+try { var cp = JSON.parse(localStorage.getItem('mg-cardpos') || 'null'); if (cp && isFinite(cp.x) && isFinite(cp.y)) cardPos = cp; } catch (e) { dbg('ignore', e); }
+function cardWide() { return !window.matchMedia('(max-width: 640px)').matches; }
+function placeCard() {
+  var c = el('card');
+  if (!cardPos || !cardWide()) {
+    c.style.left = c.style.top = c.style.bottom = c.style.maxHeight = '';
+    c.classList.remove('moved');
+    return;
+  }
+  var w = c.offsetWidth || 300;
+  var x = Math.max(8, Math.min(window.innerWidth - w - 8, cardPos.x));
+  var y = Math.max(8, Math.min(window.innerHeight - 80, cardPos.y));
+  c.style.left = x + 'px'; c.style.top = y + 'px'; c.style.bottom = 'auto';
+  c.style.maxHeight = Math.max(120, Math.min(520, window.innerHeight - y - 12)) + 'px';
+  c.classList.add('moved');
+}
+(function () {
+  var head = document.querySelector('#card .head'), drag = null;
+  head.title = T('Glisser pour déplacer la fiche, double-clic pour la replacer');
+  head.addEventListener('pointerdown', function (e) {
+    if (!cardWide() || e.button !== 0 || e.target.closest('a, button')) return;
+    var r = el('card').getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, id: e.pointerId };
+    head.setPointerCapture(e.pointerId);
+    el('card').classList.add('dragging');
+    e.preventDefault();
+  });
+  head.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    cardPos = { x: e.clientX - drag.dx, y: e.clientY - drag.dy };
+    placeCard();
+  });
+  function end(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    el('card').classList.remove('dragging');
+    try { if (cardPos) localStorage.setItem('mg-cardpos', JSON.stringify(cardPos)); } catch (err) { dbg('ignore', err); }
+  }
+  head.addEventListener('pointerup', end);
+  head.addEventListener('pointercancel', end);
+  head.addEventListener('dblclick', function (e) {
+    if (e.target.closest('a, button')) return;
+    cardPos = null;
+    try { localStorage.removeItem('mg-cardpos'); } catch (err) { dbg('ignore', err); }
+    placeCard();
+  });
+  window.addEventListener('resize', placeCard);
+  placeCard();
+})();
 el('sound').addEventListener('change', function (e) {
   hoverPlay = e.target.checked;
   try { localStorage.setItem('mg-hover', hoverPlay ? '1' : '0'); } catch (err) { dbg('ignore', err); }
