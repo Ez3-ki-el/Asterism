@@ -10,7 +10,7 @@ Pas de build, pas de serveur, pas de clé d'API : tout se passe dans le navigate
 
 ## Fonctions
 
-- **Accueil** : quelques artistes pour essayer, les artistes du moment sur Deezer, et un artiste au hasard par genre Deezer.
+- **Accueil** : quelques artistes pour essayer, les artistes du moment sur Deezer, et un artiste au hasard par genre, tiré de la radio Deezer du genre (la liste « artistes du genre » de Deezer renvoie le classement général quel que soit le genre).
 - **Recherche** d'un artiste, ou bouton **Surprends-moi** (recherche au hasard, puis un saut vers un voisin pour tomber sur un artiste bien relié).
 - **Fiche** au clic sur un nœud (déplaçable par son en-tête sur grand écran, position mémorisée, double-clic sur l'en-tête pour la replacer) : Explorer, Écouter, Top des titres ouvert par défaut (3 à 10, réglable). La barre de lecture se déplace dans l'extrait de 30 secondes.
 - **Lecteur** : un encart séparé, en bas à droite (sous la recherche sur téléphone), visible pendant toute la lecture. Photo cliquable pour rouvrir la fiche, lecture et pause, temps, barre de progression. Volume réglable avec bouton pour couper le son, mémorisé d'une visite à l'autre. La musique continue quand on ferme la fiche ou qu'on regarde un autre artiste (seule l'écoute au survol s'arrête).

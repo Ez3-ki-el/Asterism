@@ -292,13 +292,32 @@ function homeChip(label, box, fn) {
   b.addEventListener('click', function () { fn(b); });
   el(box).appendChild(b);
 }
-async function randomOfGenre(gid, btn) {
+/* Un artiste au hasard dans un genre. La route Deezer /genre/{id}/artists renvoie le classement general quel que soit
+   le genre (constate le 2026-11-22 : Metal donnait Koba LaD) : on passe par la radio Deezer du genre, dont les titres
+   respectent le genre. Radio au nom du genre de preference, sinon la premiere ; puis un artiste tire parmi ses titres. */
+async function randomOfGenre(gid, gname, btn) {
   btn.disabled = true;
   try {
-    var r = await dz('/genre/' + gid + '/artists');
-    var list = (r && r.data) || [];
-    if (!list.length) throw new Error(T('aucun artiste trouvé, réessaie'));
-    addRoot(list[Math.floor(Math.random() * list.length)]);
+    var radios = ((await dz('/genre/' + gid + '/radios')).data || []).filter(function (x) { return x && x.id; });
+    if (!radios.length) throw new Error(T('aucun artiste trouvé, réessaie'));
+    /* Radios d'evenement (festivals, annees, chaines) ecartees ; puis le nom exact du genre, sinon un nom qui le contient
+       (Classiques du rock, Electronic...), sinon une des premieres radios du genre. */
+    var junk = /festival|\b(19|20)\d\d\b|mtv|weather|nuits|parisien|t[eé]l[eé]rama|magazine|test|ina musique|victoires|home/i;
+    var ok = radios.filter(function (x) { return !junk.test(x.title || ''); });
+    if (!ok.length) ok = radios;
+    var gn = normName(gname), stem = (gn.split(' ').filter(function (w) { return w.length >= 4; })[0] || gn).slice(0, 5);
+    var pickFrom = ok.filter(function (x) { return normName(x.title) === gn; });
+    if (!pickFrom.length) pickFrom = ok.filter(function (x) { return normName(x.title).indexOf(stem) >= 0; });
+    if (!pickFrom.length) pickFrom = ok.slice(0, 3);
+    var radio = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    var tracks = (await dz('/radio/' + radio.id + '/tracks?limit=40')).data || [];
+    var pool = new Map();
+    tracks.forEach(function (t) { if (t.artist && t.artist.id) pool.set(t.artist.id, t.artist); });
+    var ids = Array.from(pool.keys());
+    if (!ids.length) throw new Error(T('aucun artiste trouvé, réessaie'));
+    var pick = pool.get(ids[Math.floor(Math.random() * ids.length)]);
+    var full = await dz('/artist/' + pick.id).catch(function () { return null; });
+    addRoot(full && full.id ? full : pick);
   } catch (e) {
     toast(T('Erreur Deezer : {m}', { m: T(e.message) }));
   } finally { btn.disabled = false; }
@@ -312,7 +331,7 @@ dz('/chart/0/artists?limit=8').then(function (r) {
 dz('/genre').then(function (r) {
   var list = ((r && r.data) || []).filter(function (x) { return x && x.id > 0 && x.name && !/livre|audio ?book|enfant|kid|film|jeu|game|podcast/i.test(x.name); }).slice(0, 14);
   if (!list.length) return;
-  list.forEach(function (x) { homeChip(x.name, 'genres', function (b) { randomOfGenre(x.id, b); }); });
+  list.forEach(function (x) { homeChip(x.name, 'genres', function (b) { randomOfGenre(x.id, x.name, b); }); });
   el('genreh').hidden = false;
 }, function (e) { dbg('genres deezer', e); });
 
