@@ -41,7 +41,7 @@
 }
 </script>
 <title>Asterism : carte des artistes similaires (dig musical)</title>
-<link rel="stylesheet" href="style.css?v=20261120s">
+<link rel="stylesheet" href="style.css?v=20261122b">
 <script>
   (function () {
     var t = null;
@@ -250,9 +250,17 @@
       <div class="bar"><i id="cbar"></i></div>
     </div>
     <div class="plx" id="plx"></div>
+    <div class="vol">
+      <button id="volbtn" type="button" aria-label="Couper le son" title="Couper le son">
+        <svg class="i-on" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.6a6 6 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+        <svg class="i-off" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 6l4 4M15 6l-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      </button>
+      <input id="vol" type="range" min="0" max="100" step="1" value="70" aria-label="Volume">
+    </div>
   </div>
   <div id="xprog" class="box" role="status" aria-live="polite" hidden></div>
   <div id="mylist" class="box" role="dialog" aria-label="Mes écoutes" hidden></div>
+  <div id="pathbar" class="box" role="status" aria-live="polite" hidden></div>
   <div id="toast" class="box" role="status" aria-live="polite" hidden></div>
   <div id="status"></div>
   <button id="lang" class="link" type="button" aria-label="Langue" title="Langue"><span data-l="fr">FR</span> / <span data-l="en">EN</span></button>
@@ -260,13 +268,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="js/core.js?v=20261120s"></script>
-<script src="js/sources.js?v=20261120s"></script>
-<script src="js/render.js?v=20261120s"></script>
-<script src="js/actions.js?v=20261120s"></script>
-<script src="js/card.js?v=20261120s"></script>
-<script src="js/ui.js?v=20261120s"></script>
-<script src="js/i18n.js?v=20261120s"></script>
-<script src="js/boot.js?v=20261120s"></script>
+<script src="js/core.js?v=20261122b"></script>
+<script src="js/sources.js?v=20261122b"></script>
+<script src="js/render.js?v=20261122b"></script>
+<script src="js/actions.js?v=20261122b"></script>
+<script src="js/card.js?v=20261122b"></script>
+<script src="js/path.js?v=20261122b"></script>
+  <script src="js/ui.js?v=20261122b"></script>
+<script src="js/i18n.js?v=20261122b"></script>
+<script src="js/boot.js?v=20261122b"></script>
 </body>
 </html>

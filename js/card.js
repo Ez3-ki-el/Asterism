@@ -38,7 +38,7 @@ function hoverStart(n) {
     try {
       await audio.play();
       if (tok !== playToken) { audio.pause(); return; }
-      fade(0.7, 300);
+      fade(volLevel, 300);
     } catch (e) {
       if (tok === playToken) { playing = null; renderCard(); }
     }
@@ -448,7 +448,7 @@ async function playTrack(n, title, url, kind, idx) {
   try {
     await audio.play();
     if (tok !== playToken) { audio.pause(); return false; }
-    fade(0.7, 300);
+    fade(volLevel, 300);
     return true;
   } catch (e) {
     dbg('lecture', e);
@@ -876,6 +876,34 @@ async function loadTracks(n) {
   return n.tracks;
 }
 
+/* Volume du lecteur (0 a 1), memorise ; les fondus d'entree montent jusqu'a ce niveau. Couper le son garde le niveau choisi. */
+var volLevel = 0.7, volSaved = 0.7;
+try {
+  var sv = parseFloat(localStorage.getItem('mg-vol'));
+  if (isFinite(sv)) volLevel = Math.max(0, Math.min(1, sv));
+} catch (e) { dbg('ignore', e); }
+if (volLevel > 0) volSaved = volLevel;
+function setVolume(v, keep) {
+  volLevel = Math.max(0, Math.min(1, v));
+  if (volLevel > 0 && !keep) volSaved = volLevel;
+  clearInterval(fadeT);
+  if (!audio.paused) audio.volume = volLevel;
+  try { localStorage.setItem('mg-vol', String(volLevel)); } catch (e) { dbg('ignore', e); }
+  renderVol();
+}
+function renderVol() {
+  var off = volLevel === 0;
+  el('vol').value = Math.round(volLevel * 100);
+  el('player').classList.toggle('muted', off);
+  var lb = off ? T('Rétablir le son') : T('Couper le son');
+  el('volbtn').setAttribute('aria-label', lb); el('volbtn').title = lb;
+  el('vol').setAttribute('aria-label', T('Volume'));
+  el('vol').title = T('Volume : {n} %', { n: Math.round(volLevel * 100) });
+}
+el('vol').addEventListener('input', function (e) { setVolume(e.target.value / 100); });
+el('volbtn').addEventListener('click', function () { setVolume(volLevel > 0 ? 0 : (volSaved || 0.7), true); });
+renderVol();
+
 function fade(to, ms, done) {
   clearInterval(fadeT);
   var from = audio.volume, steps = 10, i = 0;
@@ -898,7 +926,7 @@ function togglePause() {
   if (playing.paused) {
     playing.paused = false;
     audio.volume = 0;
-    audio.play().then(function () { fade(0.7, 200); }).catch(function () {});
+    audio.play().then(function () { fade(volLevel, 200); }).catch(function () {});
   } else {
     playing.paused = true;
     fade(0, 150, function () { if (playing && playing.paused) audio.pause(); });
@@ -921,7 +949,7 @@ async function togglePlay(n, i) {
   try {
     await audio.play();
     if (tok !== playToken) { audio.pause(); return; }
-    fade(0.7, 300);
+    fade(volLevel, 300);
   } catch (e) {
     if (tok === playToken) {
       playing = null; renderCard();

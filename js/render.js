@@ -41,6 +41,7 @@ function draw() {
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
   var k = transform.k, f = hovered, nb = f ? adj.get(f.id) : null, i, l, n;
+  var ps = pathAlive(), pf = ps ? 0.22 : 1;   /* chemin affiche : le reste de la carte est estompe */
 
   var dimRoot = focusDepth > 0 && selected && !selected.root;
   function isDim(lk) {
@@ -55,7 +56,7 @@ function draw() {
       if (!test(l)) continue;
       ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
     }
-    ctx.globalAlpha = alpha; ctx.strokeStyle = C.link; ctx.lineWidth = 1 / k;
+    ctx.globalAlpha = alpha * pf; ctx.strokeStyle = C.link; ctx.lineWidth = 1 / k;
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
@@ -76,7 +77,7 @@ function draw() {
     var multi = ek.length > 1, wgt = 1 + (l.w || 0) * 0.8;
     ctx.beginPath();
     ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
-    ctx.globalAlpha = (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (toBig(l) ? 0.2 : 1) * (multi ? 0.45 : 1) * fadeOf(l);
+    ctx.globalAlpha = pf * (f ? 0.35 : 1) * (isDim(l) ? 0.35 : 1) * (toBig(l) ? 0.2 : 1) * (multi ? 0.45 : 1) * fadeOf(l);
     ctx.strokeStyle = multi ? C.ink : C.link;
     ctx.lineWidth = (multi ? 1.25 : 1) * wgt / k;
     ctx.setLineDash(multi ? [] : (ek === 'c' ? [1.5 / k, 3.5 / k]
@@ -87,6 +88,14 @@ function draw() {
     ctx.stroke();
   }
   ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  if (ps) {
+    ctx.beginPath();
+    for (i = 1; i < ps.list.length; i++) {
+      ctx.moveTo(ps.list[i - 1].x, ps.list[i - 1].y); ctx.lineTo(ps.list[i].x, ps.list[i].y);
+    }
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 3.2 / k; ctx.lineCap = 'round'; ctx.stroke(); ctx.lineCap = 'butt';
+  }
 
   if (f) {
     ctx.beginPath();
@@ -111,9 +120,10 @@ function draw() {
     var v = vis(n), a = v ? 1 : 0.07;
     if (f && v && n !== f && !nb.has(n.id)) a = 0.2;
     if (dimNode(n)) a = Math.min(a, 0.12);
+    if (ps && !ps.ids.has(n.id)) a = Math.min(a, 0.18);
     a *= fadeOf(n);
     ctx.globalAlpha = a;
-    var r = R(n), hot = (n === f || n.root);
+    var r = R(n), hot = (n === f || n.root || (ps && ps.ids.has(n.id)) || n === pathPick);
     ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
     if (n.imgOk && r * k >= 6) {
       ctx.save();
@@ -220,8 +230,8 @@ function draw() {
   for (i = 0; i < nodes.length; i++) {
     n = nodes[i];
     if (!vis(n)) continue;
-    var strong = n === f || n === selected || n.root || (f && nb.has(n.id));
-    if (!strong && (f || base <= 0.02 || dimNode(n))) continue;
+    var strong = n === f || n === selected || n.root || (f && nb.has(n.id)) || (ps && ps.ids.has(n.id)) || n === pathPick;
+    if (!strong && (f || ps || base <= 0.02 || dimNode(n))) continue;
     cand.push({ n: n, strong: strong });
   }
   cand.sort(function (a, b) {
@@ -336,6 +346,7 @@ var drag = d3.drag().container(canvas)
     if (!n.pinned) { n.fx = null; n.fy = null; }
     dragging = false;
     if (!s.moved && !pinching(350)) {
+      if (pathClick(n)) return;
       select(n);
       if (e.sourceEvent && /^touch/.test(e.sourceEvent.type)) {
         var tnow = Date.now();

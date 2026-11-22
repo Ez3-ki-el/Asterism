@@ -305,6 +305,7 @@ function menuItems(n) {
     { label: (playing && playing.id === n.id) ? (playing.paused ? T('Reprendre') : T('Pause')) : T('Écouter'),
       run: function () { if (playing && playing.id === n.id) togglePause(); else togglePlay(n, 0); } },
     { label: T('Écouter ses voisins'), disabled: !neighboursByScore(n).length, run: function () { startTour(n); } },
+    { label: T('Chemin vers…'), disabled: nodes.length < 2, run: function () { startPathPick(n); } },
     { label: T('Top {n} titres', { n: topN }),
       run: function () { n.showTop = true; loadTracks(n).then(function () { if (selected === n) renderCard(); }); } },
     { label: focusDepth > 0 ? T('Quitter le focus') : T('Focus sur ce nœud'),

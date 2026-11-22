@@ -152,6 +152,10 @@ EN = {
   'aucune influence enregistrée': 'no influence recorded', 'influences sans équivalent Deezer': 'influences not found on Deezer',
   'Genres (MusicBrainz)': 'Genres (MusicBrainz)', 'Biographie (Wikipédia)': 'Biography (Wikipedia)',
   'Source : Wikipédia, licence CC BY-SA': 'Source: Wikipedia, CC BY-SA licence',
+  'Couper le son': 'Mute', 'Rétablir le son': 'Unmute', 'Volume : {n} %': 'Volume: {n}%',
+  'Chemin vers…': 'Path to…', 'Chemin depuis {name} : clique l’artiste d’arrivée sur la carte.': 'Path from {name}: click the destination artist on the map.',
+  'Chemin en {n} étape': 'Path in {n} step', 'Chemin en {n} étapes': 'Path in {n} steps', 'Écouter le chemin': 'Play the path',
+  'Aucun chemin entre {a} et {b} sur la carte actuelle : explore quelques artistes entre les deux, puis réessaie.': 'No path between {a} and {b} on the current map: explore a few artists in between, then try again.',
   'En ce moment sur Deezer :': 'Trending on Deezer:', 'Un artiste au hasard par genre :': 'A random artist by genre:'
 };
 

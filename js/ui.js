@@ -138,6 +138,7 @@ document.getElementById('fit').addEventListener('click', fit);
 function clearGraph() {
   gen++;
   stopTour();
+  clearPath();
   xjobs.length = 0; renderProg();
   hovered = null; selected = null; visible = null; stopAudio();
   nodes.length = 0; links.length = 0; byId.clear(); adj.clear(); linkKeys.clear();
@@ -252,7 +253,7 @@ window.addEventListener('keydown', function (e) {
     return;
   }
   if (e.key === 'Escape') {
-    if (!el('mylist').hidden) closeMyList(); else if (!el('help').hidden) hideHelp(); else { hideMenu(); select(null); }
+    if (!el('mylist').hidden) closeMyList(); else if (!el('help').hidden) hideHelp(); else if (clearPath()) { /* chemin retire */ } else { hideMenu(); select(null); }
     return;
   }
   var tg = e.target, tag = (tg && tg.tagName) || '';
