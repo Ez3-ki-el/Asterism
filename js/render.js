@@ -41,7 +41,9 @@ function draw() {
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
   var k = transform.k, f = hovered, nb = f ? adj.get(f.id) : null, i, l, n;
-  var ps = pathAlive(), pf = ps ? 0.22 : 1;   /* chemin affiche : le reste de la carte est estompe */
+  /* Chemin affiche (path.js, charge apres ce fichier : draw() tourne deja au chargement, d'ou les gardes typeof). */
+  var ps = typeof pathAlive === 'function' ? pathAlive() : null, pf = ps ? 0.22 : 1;
+  var pp = typeof pathPick !== 'undefined' ? pathPick : null;
 
   var dimRoot = focusDepth > 0 && selected && !selected.root;
   function isDim(lk) {
@@ -123,7 +125,7 @@ function draw() {
     if (ps && !ps.ids.has(n.id)) a = Math.min(a, 0.18);
     a *= fadeOf(n);
     ctx.globalAlpha = a;
-    var r = R(n), hot = (n === f || n.root || (ps && ps.ids.has(n.id)) || n === pathPick);
+    var r = R(n), hot = (n === f || n.root || (ps && ps.ids.has(n.id)) || n === pp);
     ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
     if (n.imgOk && r * k >= 6) {
       ctx.save();
@@ -230,7 +232,7 @@ function draw() {
   for (i = 0; i < nodes.length; i++) {
     n = nodes[i];
     if (!vis(n)) continue;
-    var strong = n === f || n === selected || n.root || (f && nb.has(n.id)) || (ps && ps.ids.has(n.id)) || n === pathPick;
+    var strong = n === f || n === selected || n.root || (f && nb.has(n.id)) || (ps && ps.ids.has(n.id)) || n === pp;
     if (!strong && (f || ps || base <= 0.02 || dimNode(n))) continue;
     cand.push({ n: n, strong: strong });
   }
@@ -346,7 +348,7 @@ var drag = d3.drag().container(canvas)
     if (!n.pinned) { n.fx = null; n.fy = null; }
     dragging = false;
     if (!s.moved && !pinching(350)) {
-      if (pathClick(n)) return;
+      if (typeof pathClick === 'function' && pathClick(n)) return;
       select(n);
       if (e.sourceEvent && /^touch/.test(e.sourceEvent.type)) {
         var tnow = Date.now();
